@@ -13,7 +13,7 @@ public final class ChatRepository: Sendable {
     /// Fetch all chats from the database
     public func fetchAllChats() async throws -> [Chat] {
         let query = """
-            SELECT rowid, chat_identifier, service_name, display_name, properties
+            SELECT ROWID as rowid, chat_identifier, service_name, display_name, properties
             FROM chat
             ORDER BY rowid
         """
@@ -27,7 +27,7 @@ public final class ChatRepository: Sendable {
     /// Fetch a specific chat by ID
     public func fetchChat(withId chatId: Int32) async throws -> Chat? {
         let query = """
-            SELECT rowid, chat_identifier, service_name, display_name, properties
+            SELECT ROWID as rowid, chat_identifier, service_name, display_name, properties
             FROM chat
             WHERE rowid = \(chatId)
             LIMIT 1
@@ -42,7 +42,7 @@ public final class ChatRepository: Sendable {
     /// Fetch a chat by its identifier
     public func fetchChat(withIdentifier identifier: String) async throws -> Chat? {
         let query = """
-            SELECT rowid, chat_identifier, service_name, display_name, properties
+            SELECT ROWID as rowid, chat_identifier, service_name, display_name, properties
             FROM chat
             WHERE chat_identifier = '\(identifier)'
             LIMIT 1
@@ -57,7 +57,7 @@ public final class ChatRepository: Sendable {
     /// Fetch group chats only
     public func fetchGroupChats() async throws -> [Chat] {
         let query = """
-            SELECT rowid, chat_identifier, service_name, display_name, properties
+            SELECT ROWID as rowid, chat_identifier, service_name, display_name, properties
             FROM chat
             WHERE chat_identifier LIKE 'chat%'
             ORDER BY rowid
@@ -72,7 +72,7 @@ public final class ChatRepository: Sendable {
     /// Fetch direct message chats only
     public func fetchDirectMessageChats() async throws -> [Chat] {
         let query = """
-            SELECT rowid, chat_identifier, service_name, display_name, properties
+            SELECT ROWID as rowid, chat_identifier, service_name, display_name, properties
             FROM chat
             WHERE chat_identifier NOT LIKE 'chat%'
             ORDER BY rowid

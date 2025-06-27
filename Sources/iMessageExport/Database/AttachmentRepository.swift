@@ -13,7 +13,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch all attachments from the database
     public func fetchAllAttachments() async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             ORDER BY rowid
@@ -28,7 +28,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch a specific attachment by ID
     public func fetchAttachment(withId attachmentId: Int32) async throws -> Attachment? {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE rowid = \(attachmentId)
@@ -44,7 +44,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch attachments for a specific message
     public func fetchAttachments(forMessageId messageId: Int32) async throws -> [Attachment] {
         let query = """
-            SELECT a.rowid, a.filename, a.uti, a.mime_type, a.transfer_name, a.total_bytes, 
+            SELECT a.ROWID as rowid, a.filename, a.uti, a.mime_type, a.transfer_name, a.total_bytes, 
                    a.is_sticker, a.hide_attachment, a.emoji_image_short_description
             FROM attachment a
             JOIN message_attachment_join maj ON a.rowid = maj.attachment_id
@@ -61,7 +61,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch attachments by MIME type
     public func fetchAttachments(withMimeType mimeType: String) async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE mime_type = '\(mimeType)'
@@ -77,7 +77,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch image attachments only
     public func fetchImageAttachments() async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE mime_type LIKE 'image/%'
@@ -93,7 +93,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch video attachments only
     public func fetchVideoAttachments() async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE mime_type LIKE 'video/%'
@@ -109,7 +109,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch audio attachments only
     public func fetchAudioAttachments() async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE mime_type LIKE 'audio/%'
@@ -125,7 +125,7 @@ public final class AttachmentRepository: Sendable {
     /// Fetch sticker attachments only
     public func fetchStickerAttachments() async throws -> [Attachment] {
         let query = """
-            SELECT rowid, filename, uti, mime_type, transfer_name, total_bytes, 
+            SELECT ROWID as rowid, filename, uti, mime_type, transfer_name, total_bytes, 
                    is_sticker, hide_attachment, emoji_image_short_description
             FROM attachment
             WHERE is_sticker = 1
