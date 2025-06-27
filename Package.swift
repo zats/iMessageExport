@@ -33,6 +33,9 @@ let package = Package(
         .testTarget(
             name: "iMessageExportTests",
             dependencies: ["iMessageExport"],
+            resources: [
+                .copy("Resources")
+            ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableUpcomingFeature("ExistentialAny"),
