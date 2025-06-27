@@ -46,7 +46,9 @@ public final class DatabaseConnection: Sendable {
     
     /// Get the default iMessage database path
     nonisolated public static func defaultDatabasePath() -> String {
-        return URL.libraryDirectory
+        let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+        return homeDirectory
+            .appendingPathComponent("Library")
             .appendingPathComponent("Messages")
             .appendingPathComponent("chat.db")
             .path

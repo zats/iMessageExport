@@ -108,8 +108,8 @@ for chat in chats {
 ## Requirements
 
 - Swift 6.0+
-- macOS 14.0+ / iOS 17.0+
-- Access to the iMessage database (typically requires Full Disk Access on macOS)
+- macOS 14.0+
+- Access to the iMessage database (requires Full Disk Access on macOS)
 
 ## Database Location
 

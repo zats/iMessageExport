@@ -7,7 +7,6 @@ let package = Package(
     name: "iMessageExport",
     platforms: [
         .macOS(.v14),
-        .iOS(.v17)
     ],
     products: [
         .library(
