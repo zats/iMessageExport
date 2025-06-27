@@ -1,86 +1,5 @@
 @_exported import Foundation
 
-/// Group actions that can be performed in a chat
-@frozen
-public enum GroupAction: Int32, Sendable, Hashable, Codable, CaseIterable {
-    case none = 0
-    case addMember = 1
-    case removeMember = 2
-    case changeName = 3
-    case changePhoto = 4
-    case leaveGroup = 5
-}
-
-/// Tapback actions for reacting to messages
-@frozen
-public enum TapbackAction: Int32, Sendable, Hashable, Codable, CaseIterable {
-    case none = 0
-    case love = 2000
-    case like = 2001
-    case dislike = 2002
-    case laugh = 2003
-    case emphasize = 2004
-    case question = 2005
-    
-    /// Remove reactions
-    case removeLove = 3000
-    case removeLike = 3001
-    case removeDislike = 3002
-    case removeLaugh = 3003
-    case removeEmphasize = 3004
-    case removeQuestion = 3005
-}
-
-/// Message variants that determine the type and behavior of a message
-@frozen
-public enum MessageVariant: Sendable, Hashable, Codable {
-    /// Regular text message
-    case text
-    /// Message with attachments
-    case attachment
-    /// Group chat announcement
-    case announcement(GroupAction)
-    /// Tapback reaction to another message
-    case tapback(TapbackAction, String) // action, target message GUID
-    /// Sticker message
-    case sticker
-    /// App integration message
-    case app(String?) // bundle ID
-    /// Digital touch message
-    case digitalTouch
-    /// Handwriting message
-    case handwriting
-    /// Music/media sharing
-    case music
-    /// Location sharing
-    case location
-    /// Edited message
-    case edited(String?) // original message GUID
-    /// Unknown message type
-    case unknown(Int32) // item_type
-}
-
-/// Edit status for messages
-@frozen
-public enum EditStatus: Sendable, Hashable, Codable {
-    /// Message was not edited
-    case notEdited
-    /// Message was edited
-    case edited
-    /// Message was unsent/deleted
-    case unsent
-}
-
-/// Expressive send effects
-@frozen
-public enum ExpressiveEffect: String, Sendable, Hashable, Codable, CaseIterable {
-    case none = ""
-    case slam = "com.apple.MobileSMS.expressivesend.impact"
-    case loud = "com.apple.MobileSMS.expressivesend.loud"
-    case gentle = "com.apple.MobileSMS.expressivesend.gentle"
-    case invisibleInk = "com.apple.messages.effect.CKInvisibleInkBalloonView"
-}
-
 /// Represents a single row in the `message` table.
 public struct Message: Sendable, Hashable, Codable, Identifiable {
     /// The unique identifier for the message in the database
@@ -217,19 +136,9 @@ public struct Message: Sendable, Hashable, Codable, Identifiable {
         Service.from(service)
     }
     
-    /// The group action for this message
-    public var groupAction: GroupAction {
-        GroupAction(rawValue: groupActionType) ?? .none
-    }
-    
-    /// The tapback action for this message
-    public var tapbackAction: TapbackAction? {
-        TapbackAction(rawValue: associatedMessageType)
-    }
-    
     /// The expressive effect for this message
     public var expressiveEffect: ExpressiveEffect {
-        ExpressiveEffect(rawValue: expressiveSendStyleId ?? "") ?? .none
+        ExpressiveEffect.from(styleId: expressiveSendStyleId)
     }
     
     /// Convert nanoseconds since 2001-01-01 to Date
@@ -282,19 +191,29 @@ public struct Message: Sendable, Hashable, Codable, Identifiable {
         dateEdited != nil && dateEdited! > 0
     }
     
-    /// Whether this message is a group action
-    public var isGroupAction: Bool {
-        groupAction != .none
-    }
-    
-    /// Whether this message is a tapback reaction
-    public var isTapback: Bool {
-        tapbackAction != nil
-    }
-    
     /// Whether this message has expressive effects
     public var hasExpressiveEffect: Bool {
-        expressiveEffect != .none
+        !expressiveEffect.isNone
+    }
+    
+    /// Whether this message is a reaction/tapback
+    public var isReaction: Bool {
+        variant.isReaction
+    }
+    
+    /// Whether this message is a group announcement
+    public var isAnnouncement: Bool {
+        variant.isAnnouncement
+    }
+    
+    /// Whether this message is an app integration
+    public var isAppMessage: Bool {
+        variant.isApp
+    }
+    
+    /// Whether this message is normal text/content
+    public var isNormalMessage: Bool {
+        variant.isNormal
     }
     
     /// Whether this message was deleted
@@ -302,42 +221,57 @@ public struct Message: Sendable, Hashable, Codable, Identifiable {
         deletedFrom != nil
     }
     
-    /// Message variant based on item type and other properties
+    /// Message variant based on comprehensive analysis of message properties
+    /// Follows the same classification logic as the Rust imessage-exporter
     public var variant: MessageVariant {
-        if isTapback, let action = tapbackAction, let targetGuid = associatedMessageGuid {
-            return .tapback(action, targetGuid)
-        }
-        
-        if isGroupAction {
-            return .announcement(groupAction)
-        }
-        
-        if hasAttachments {
-            return .attachment
-        }
-        
-        if let bundleId = balloonBundleId, !bundleId.isEmpty {
-            return .app(bundleId)
-        }
-        
+        // Priority 1: Edited messages
         if wasEdited {
-            return .edited(associatedMessageGuid)
+            return .edited
         }
         
-        switch itemType {
-        case 0:
-            return .text
-        case 1:
-            return .attachment
-        case 2:
-            return .location
-        case 3:
-            return .announcement(groupAction)
-        case 5:
-            return .sticker
-        default:
-            return .unknown(itemType)
+        // Priority 2: Associated message types (reactions/tapbacks)
+        if let (action, tapback) = Tapback.from(associatedMessageType: associatedMessageType, emoji: associatedMessageEmoji) {
+            return .tapback(action, tapback)
         }
+        
+        // Priority 3: SharePlay
+        if itemType == 6 {
+            return .sharePlay
+        }
+        
+        // Priority 4: Group actions
+        if let groupAction = GroupAction.from(itemType: itemType, groupActionType: groupActionType, otherHandle: otherHandle, groupTitle: groupTitle) {
+            return .groupAction(groupAction)
+        }
+        
+        // Priority 5: Audio message kept
+        if itemType == 5 {
+            return .audioMessageKept
+        }
+        
+        // Priority 6: Location sharing
+        if itemType == 4 {
+            let shareStatus = ShareStatus.from(shareStatus: shareStatus, shareDirection: shareDirection)
+            return .locationShare(shareStatus)
+        }
+        
+        // Priority 7: App integrations (check balloon bundle ID)
+        if associatedMessageType == 0 || associatedMessageType == 2 || associatedMessageType == 3 {
+            let balloon = CustomBalloon.from(bundleId: balloonBundleId)
+            if case .unknown(_) = balloon {
+                // Fall through to normal message
+            } else {
+                return .app(balloon)
+            }
+        }
+        
+        // Priority 8: Default to normal message
+        if itemType == 0 {
+            return .normal
+        }
+        
+        // Unknown item type
+        return .unknown(itemType)
     }
 }
 

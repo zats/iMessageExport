@@ -202,17 +202,16 @@ final class DatabaseIntegrationTests: XCTestCase {
     // Helper functions for enum comparison
     private func variantMatches(_ expected: MessageVariant, _ actual: MessageVariant) -> Bool {
         switch (expected, actual) {
-        case (.text, .text), (.attachment, .attachment), (.sticker, .sticker),
-             (.digitalTouch, .digitalTouch), (.handwriting, .handwriting),
-             (.music, .music), (.location, .location):
+        case (.normal, .normal), (.edited, .edited), (.sharePlay, .sharePlay), 
+             (.audioMessageKept, .audioMessageKept):
             return true
         case (.app(_), .app(_)):
             return true
-        case (.announcement(_), .announcement(_)):
+        case (.groupAction(_), .groupAction(_)):
             return true
         case (.tapback(_, _), .tapback(_, _)):
             return true
-        case (.edited(_), .edited(_)):
+        case (.locationShare(_), .locationShare(_)):
             return true
         case (.unknown(_), .unknown(_)):
             return true
