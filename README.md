@@ -20,6 +20,52 @@ dependencies: [
 ]
 ```
 
+## Demo App
+
+The package includes a beautiful **native macOS SwiftUI app** that showcases all features:
+
+```bash
+swift run iMessageDemo
+```
+
+This will launch a **native macOS SwiftUI app** with:
+
+### 🎯 **Features**
+- **Split-view interface** - Chat list on the left, messages on the right
+- **Real-time loading** - Async data loading with progress indicators
+- **Search functionality** - Find conversations quickly
+- **Semantic message display** - All message types rendered appropriately:
+  - 💬 Normal text messages with proper bubble styling
+  - ✏️ Edited messages with edit indicators
+  - 😍 Reactions/tapbacks with emoji display
+  - 📱 App integrations (Apple Pay, Music, URLs, etc.)
+  - 👥 Group actions (member changes, name changes)
+  - 🎯 SharePlay invitations
+  - 📍 Location sharing
+  - 🎵 Audio message notifications
+
+### 🎨 **macOS UI Highlights**
+- **Native macOS styling** - Uses NSColor and macOS design patterns
+- **Split-view navigation** - NavigationSplitView with proper column sizing
+- **Sidebar list style** - macOS-native sidebar appearance
+- **Unified toolbar** - macOS-style window toolbar
+- **Message bubbles** - Proper styling for sent vs received
+- **Service badges** - Visual indicators for iMessage/SMS/RCS
+- **Chat statistics** - Message and attachment counts
+- **Thread indicators** - Reply and delivery status
+- **Expressive effects** - Send effect indicators
+- **Keyboard shortcuts** - ⌘R to refresh data
+- **Error handling** - Helpful error messages with permission tips
+
+### 📸 **Screenshots**
+The app provides a comprehensive view of your iMessage data with:
+- Conversation list with search and filtering
+- Individual message display with semantic rendering
+- Proper macOS native styling and behavior
+- Real-time statistics and metadata
+
+**Note:** You may need to grant Full Disk Access to Xcode in System Preferences > Security & Privacy > Privacy > Full Disk Access for the app to access your iMessage database.
+
 ## Basic Usage
 
 ```swift

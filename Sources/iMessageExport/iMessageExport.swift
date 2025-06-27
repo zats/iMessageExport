@@ -94,6 +94,11 @@ public final class iMessageExport: Sendable {
         return try await handleRepository.fetchHandles(forChatId: chatId)
     }
     
+    /// Create a mapping of handle IDs to display names
+    public func createHandleMapping() async throws -> [Int32: String] {
+        return try await handleRepository.createHandleMapping()
+    }
+    
     // MARK: - Attachment Operations
     
     /// Fetch all attachments from the database

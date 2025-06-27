@@ -13,6 +13,10 @@ let package = Package(
             name: "iMessageExport",
             targets: ["iMessageExport"]
         ),
+        .executable(
+            name: "iMessageDemo",
+            targets: ["iMessageDemo"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.15.3"),
@@ -22,6 +26,19 @@ let package = Package(
             name: "iMessageExport",
             dependencies: [
                 .product(name: "SQLite", package: "SQLite.swift"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+                .enableUpcomingFeature("ExistentialAny"),
+                .enableUpcomingFeature("InternalImportsByDefault"),
+            ]
+        ),
+        .executableTarget(
+            name: "iMessageDemo",
+            dependencies: ["iMessageExport"],
+            path: "Sources/iMessageDemo",
+            resources: [
+                .copy("Resources")
             ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),

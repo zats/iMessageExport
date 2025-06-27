@@ -60,4 +60,9 @@ extension Service: CustomStringConvertible {
             return "Unknown"
         }
     }
+    
+    /// User-friendly display name
+    public var displayName: String {
+        return description
+    }
 }
