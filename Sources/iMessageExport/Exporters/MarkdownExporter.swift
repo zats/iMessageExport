@@ -264,19 +264,85 @@ public final class MarkdownExporter: Sendable {
     }
     
     private func copyAttachmentToBundle(_ attachment: Attachment, to attachmentsDirectory: URL) async throws {
-        // This would need to be implemented based on how attachments are stored
-        // For now, we'll create a placeholder file with metadata
-        let filename = attachment.displayName
-        let attachmentURL = attachmentsDirectory.appendingPathComponent(filename)
+        // Get the original file path and expand ~ if needed
+        let originalPath: String
+        if let filename = attachment.filename {
+            originalPath = filename
+        } else if let transferName = attachment.transferName {
+            originalPath = transferName
+        } else {
+            // Fallback: create a metadata file
+            let metadataFilename = "attachment_\(attachment.rowid).txt"
+            let metadataURL = attachmentsDirectory.appendingPathComponent(metadataFilename)
+            
+            let metadata = """
+            Attachment: \(attachment.displayName)
+            MIME Type: \(attachment.mimeType ?? "unknown")
+            Size: \(attachment.totalBytes ?? 0) bytes
+            Is Sticker: \(attachment.isSticker)
+            """
+            
+            try metadata.write(to: metadataURL, atomically: true, encoding: .utf8)
+            return
+        }
         
-        let metadata = """
-        Attachment: \(filename)
-        MIME Type: \(attachment.mimeType ?? "unknown")
-        Size: \(attachment.totalBytes ?? 0) bytes
-        Is Sticker: \(attachment.isSticker)
-        """
+        // Expand ~ to home directory
+        let expandedPath = NSString(string: originalPath).expandingTildeInPath
+        let sourceURL = URL(fileURLWithPath: expandedPath)
         
-        try metadata.write(to: attachmentURL.appendingPathExtension("txt"), atomically: true, encoding: .utf8)
+        // Extract just the filename (last component) for the destination
+        let destinationFilename = sourceURL.lastPathComponent
+        let destinationURL = attachmentsDirectory.appendingPathComponent(destinationFilename)
+        
+        // Try to copy the actual file
+        do {
+            // Check if source file exists
+            if FileManager.default.fileExists(atPath: expandedPath) {
+                // If destination already exists, add a number suffix
+                var finalDestinationURL = destinationURL
+                var counter = 1
+                while FileManager.default.fileExists(atPath: finalDestinationURL.path) {
+                    let nameWithoutExtension = destinationURL.deletingPathExtension().lastPathComponent
+                    let fileExtension = destinationURL.pathExtension
+                    let numberedName = "\(nameWithoutExtension)_\(counter).\(fileExtension)"
+                    finalDestinationURL = attachmentsDirectory.appendingPathComponent(numberedName)
+                    counter += 1
+                }
+                
+                try FileManager.default.copyItem(at: sourceURL, to: finalDestinationURL)
+            } else {
+                // Source file doesn't exist, create a metadata file instead
+                let metadataFilename = destinationFilename + ".missing.txt"
+                let metadataURL = attachmentsDirectory.appendingPathComponent(metadataFilename)
+                
+                let metadata = """
+                Missing Attachment: \(destinationFilename)
+                Original Path: \(originalPath)
+                Expanded Path: \(expandedPath)
+                MIME Type: \(attachment.mimeType ?? "unknown")
+                Size: \(attachment.totalBytes ?? 0) bytes
+                Is Sticker: \(attachment.isSticker)
+                """
+                
+                try metadata.write(to: metadataURL, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            // If copying fails, create a metadata file with error info
+            let errorFilename = destinationFilename + ".error.txt"
+            let errorURL = attachmentsDirectory.appendingPathComponent(errorFilename)
+            
+            let errorMetadata = """
+            Failed to Copy Attachment: \(destinationFilename)
+            Original Path: \(originalPath)
+            Expanded Path: \(expandedPath)
+            Error: \(error.localizedDescription)
+            MIME Type: \(attachment.mimeType ?? "unknown")
+            Size: \(attachment.totalBytes ?? 0) bytes
+            Is Sticker: \(attachment.isSticker)
+            """
+            
+            try errorMetadata.write(to: errorURL, atomically: true, encoding: .utf8)
+        }
     }
     
     private func generateHTML(from markdown: String, chatTitle: String) -> String {
@@ -547,7 +613,25 @@ public final class MarkdownExporter: Sendable {
     }
     
     private func formatAttachment(_ attachment: Attachment) -> String {
-        let filename = attachment.displayName
+        // Use just the filename component, not the full path
+        let originalPath: String
+        if let filename = attachment.filename {
+            originalPath = filename
+        } else if let transferName = attachment.transferName {
+            originalPath = transferName
+        } else {
+            originalPath = attachment.displayName
+        }
+        
+        // Extract just the filename for the markdown link
+        let filename: String
+        if originalPath.contains("/") {
+            // Extract just the last component of the path
+            filename = URL(fileURLWithPath: originalPath).lastPathComponent
+        } else {
+            filename = originalPath
+        }
+        
         let path = "\(options.attachmentsDirectory)/\(filename)"
         
         var output = "[Attachment: \(filename)](\(path))"
