@@ -10,8 +10,7 @@ struct ChatDetailView: View {
     @State private var isLoading = true
     @State private var error: (any Error)?
     @State private var reactions: [String: [Message]] = [:]
-    @State private var exportedMarkdown: String?
-    @State private var showingExportSheet = false
+    @State private var showingExportPanel = false
     
     var body: some View {
         VStack {
@@ -78,32 +77,8 @@ struct ChatDetailView: View {
         .navigationSubtitle("\(messages.count) messages")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("Export All Messages") {
-                        Task {
-                            await exportToMarkdown(type: .all)
-                        }
-                    }
-                    
-                    Button("Export Last 50 Messages") {
-                        Task {
-                            await exportToMarkdown(type: .recent(50))
-                        }
-                    }
-                    
-                    Button("Export Last 7 Days") {
-                        Task {
-                            await exportToMarkdown(type: .lastDays(7))
-                        }
-                    }
-                    
-                    Button("Export as Bundle") {
-                        Task {
-                            await exportToMarkdown(type: .bundle)
-                        }
-                    }
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.up.on.square")
+                Button("Export") {
+                    showingExportPanel = true
                 }
                 .disabled(isLoading || messages.isEmpty)
             }
@@ -114,9 +89,9 @@ struct ChatDetailView: View {
         .refreshable {
             await loadMessages()
         }
-        .sheet(isPresented: $showingExportSheet) {
-            if let markdown = exportedMarkdown {
-                MarkdownExportSheet(markdown: markdown, chatTitle: chatTitle)
+        .sheet(isPresented: $showingExportPanel) {
+            ExportSavePanel(chat: chat, exporter: exporter) {
+                // Export completed callback
             }
         }
     }
@@ -168,81 +143,4 @@ struct ChatDetailView: View {
             isLoading = false
         }
     }
-    
-    private func exportToMarkdown(type: ExportType) async {
-        do {
-            let markdownExporter = exporter.createMarkdownExporter()
-            
-            switch type {
-            case .bundle:
-                await exportBundle()
-                return
-            default:
-                let markdown: String
-                
-                switch type {
-                case .all:
-                    markdown = try await markdownExporter.exportChat(chatId: chat.id)
-                case .recent(let limit):
-                    markdown = try await markdownExporter.exportChatWithLimit(chatId: chat.id, messageLimit: limit)
-                case .lastDays(let days):
-                    let dateRange = DateRange.lastDays(days)
-                    markdown = try await markdownExporter.exportChatInDateRange(chatId: chat.id, dateRange: dateRange)
-                case .bundle:
-                    return // Already handled above
-                }
-                
-                await MainActor.run {
-                    exportedMarkdown = markdown
-                    showingExportSheet = true
-                }
-            }
-        } catch {
-            // Handle export error - could show an alert
-            print("Export failed: \(error)")
-        }
-    }
-    
-    private func exportBundle() async {
-        let savePanel = NSSavePanel()
-        savePanel.title = "Export Chat Bundle"
-        savePanel.prompt = "Export"
-        savePanel.nameFieldStringValue = "\(sanitizeFilename(chatTitle)).imessage"
-        savePanel.canCreateDirectories = true
-        
-        await MainActor.run {
-            savePanel.begin { result in
-                if result == .OK, let selectedURL = savePanel.url {
-                    Task {
-                        do {
-                            let markdownExporter = exporter.createMarkdownExporter()
-                            try await markdownExporter.exportChatBundle(chatId: chat.id, to: selectedURL)
-                        } catch {
-                            print("Bundle export failed: \(error)")
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private func sanitizeFilename(_ filename: String) -> String {
-        return filename
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: ":", with: "_")
-            .replacingOccurrences(of: "?", with: "_")
-            .replacingOccurrences(of: "*", with: "_")
-            .replacingOccurrences(of: "<", with: "_")
-            .replacingOccurrences(of: ">", with: "_")
-            .replacingOccurrences(of: "|", with: "_")
-            .replacingOccurrences(of: "\"", with: "_")
-            .filter { !$0.isWhitespace || $0 == " " }
-    }
-}
-
-enum ExportType {
-    case all
-    case recent(Int)
-    case lastDays(Int)
-    case bundle
 }

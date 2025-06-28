@@ -69,13 +69,6 @@ struct ContentView: View {
                                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
                             }
                             .buttonStyle(.borderedProminent)
-                            
-                            Button("Try Again") {
-                                Task {
-                                    await initializeExporter()
-                                }
-                            }
-                            .buttonStyle(.bordered)
                         }
                         .padding()
                     }

@@ -1,5 +1,6 @@
 import SwiftUI
 import iMessageExport
+import UniformTypeIdentifiers
 
 struct ConversationListView: View {
     @Binding var selectedChat: Chat?
@@ -12,6 +13,8 @@ struct ConversationListView: View {
     @State private var searchText = ""
     @State private var isExporting = false
     @State private var exportProgress: Double = 0
+    @State private var chatToExport: Chat?
+    @State private var showingExportPanel = false
     
     var filteredChats: [Chat] {
         if searchText.isEmpty {
@@ -28,16 +31,9 @@ struct ConversationListView: View {
             ConversationRowView(chat: chat, handles: handles)
                 .tag(chat)
                 .contextMenu {
-                    Button("Export Chat") {
-                        Task {
-                            await exportChat(chat)
-                        }
-                    }
-                    
-                    Button("Export as Bundle") {
-                        Task {
-                            await exportChatBundle(chat)
-                        }
+                    Button("Export Chat...") {
+                        chatToExport = chat
+                        showingExportPanel = true
                     }
                 }
         }
@@ -117,6 +113,14 @@ struct ConversationListView: View {
                 await loadData()
             }
         }
+        .sheet(isPresented: $showingExportPanel) {
+            if let chat = chatToExport, let exporter = exporter {
+                ExportSavePanel(chat: chat, exporter: exporter) {
+                    // Export completed callback
+                    chatToExport = nil
+                }
+            }
+        }
     }
     
     private func loadData() async {
@@ -192,13 +196,12 @@ struct ConversationListView: View {
         var completed = 0
         
         for (chatName, markdown) in exports {
-            let filename = sanitizeFilename(chatName) + ".md"
-            let fileURL = directory.appendingPathComponent(filename)
+            let fileURL = directory.appendingPathComponent(chatName)
             
             do {
                 try markdown.write(to: fileURL, atomically: true, encoding: .utf8)
             } catch {
-                print("Failed to save \(filename): \(error)")
+                print("Failed to save \(fileURL): \(error)")
             }
             
             completed += 1
@@ -210,76 +213,6 @@ struct ConversationListView: View {
         await MainActor.run {
             isExporting = false
         }
-    }
-    
-    private func exportChat(_ chat: Chat) async {
-        guard let exporter else { return }
-        
-        do {
-            let markdownExporter = exporter.createMarkdownExporter()
-            let markdown = try await markdownExporter.exportChat(chatId: chat.rowid)
-            
-            let savePanel = NSSavePanel()
-            savePanel.title = "Export Chat"
-            savePanel.nameFieldStringValue = "\(sanitizeFilename(displayName(for: chat))).md"
-            savePanel.allowedContentTypes = [.plainText]
-            
-            await MainActor.run {
-                savePanel.begin { result in
-                    if result == .OK, let url = savePanel.url {
-                        do {
-                            try markdown.write(to: url, atomically: true, encoding: .utf8)
-                        } catch {
-                            print("Failed to save: \(error)")
-                        }
-                    }
-                }
-            }
-        } catch {
-            print("Export failed: \(error)")
-        }
-    }
-    
-    private func exportChatBundle(_ chat: Chat) async {
-        guard let exporter else { return }
-        
-        do {
-            let markdownExporter = exporter.createMarkdownExporter()
-            
-            let savePanel = NSSavePanel()
-            savePanel.title = "Export Chat Bundle"
-            savePanel.nameFieldStringValue = "\(sanitizeFilename(displayName(for: chat))).imessage"
-            savePanel.canCreateDirectories = true
-            
-            await MainActor.run {
-                savePanel.begin { result in
-                    if result == .OK, let url = savePanel.url {
-                        Task {
-                            do {
-                                try await markdownExporter.exportChatBundle(chatId: chat.rowid, to: url)
-                            } catch {
-                                print("Bundle export failed: \(error)")
-                            }
-                        }
-                    }
-                }
-            }
-        } catch {
-            print("Export setup failed: \(error)")
-        }
-    }
-    
-    private func sanitizeFilename(_ filename: String) -> String {
-        return filename
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: ":", with: "_")
-            .replacingOccurrences(of: "?", with: "_")
-            .replacingOccurrences(of: "*", with: "_")
-            .replacingOccurrences(of: "<", with: "_")
-            .replacingOccurrences(of: ">", with: "_")
-            .replacingOccurrences(of: "|", with: "_")
-            .replacingOccurrences(of: "\"", with: "_")
-            .filter { !$0.isWhitespace || $0 == " " }
     }
 }
 
