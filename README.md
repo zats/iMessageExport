@@ -52,6 +52,8 @@ A native macOS SwiftUI demo application is included in the `Sample/` directory, 
 
 To run the demo app, open `Sample/iMessageDemo.xcodeproj` in Xcode and run the `iMessageDemo` scheme.
 
+Alternatively, you can download the latest release DMG for macOS Apple Silicon here: [iMessageExport.dmg](https://github.com/zats/iMessageExport/releases/download/v1.0.0/iMessageExport.dmg)
+
 ## Security Considerations
 
 *   This library only reads data; it never modifies the iMessage database.
