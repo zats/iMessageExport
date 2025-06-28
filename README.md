@@ -2,14 +2,6 @@
 
 A Swift package for reading and analyzing iMessage data from the macOS Messages app database. Built with Swift 6 concurrency and provides comprehensive semantic classification of message types.
 
-## Features
-
-- **Thread-safe database access** using Swift 6 actors
-- **Semantic message classification** - No more raw integers, everything has meaning
-- **Comprehensive message types** - Reactions, group actions, app integrations, effects
-- **Type-safe enums** for all message variants and properties
-- **SwiftUI-ready** data models with computed properties
-
 ## Installation
 
 Add this package to your Swift project:
