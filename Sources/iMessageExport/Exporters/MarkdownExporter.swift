@@ -227,6 +227,122 @@ public final class MarkdownExporter: Sendable {
         return try await threadsExporter.exportChat(chatId: chatId)
     }
     
+    /// Export chat as a bundle with markdown, HTML, and attachments
+    public func exportChatBundle(chatId: Int32, to bundleURL: URL) async throws {
+        let chat = try await exporter.getChat(withId: chatId)
+        guard let chat = chat else {
+            throw MarkdownExportError.chatNotFound(chatId)
+        }
+        
+        // Create bundle directory
+        try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: true)
+        
+        // Export markdown
+        let markdown = try await exportChat(chatId: chatId)
+        let indexMarkdownURL = bundleURL.appendingPathComponent("index.md")
+        try markdown.write(to: indexMarkdownURL, atomically: true, encoding: .utf8)
+        
+        // Create attachments directory
+        let attachmentsURL = bundleURL.appendingPathComponent("attachments")
+        try FileManager.default.createDirectory(at: attachmentsURL, withIntermediateDirectories: true)
+        
+        // Copy attachments
+        let messages = try await exporter.getMessages(forChatId: chatId)
+        for message in messages {
+            if message.hasAttachments {
+                let attachments = try await exporter.getAttachments(forMessageId: message.rowid)
+                for attachment in attachments {
+                    try await copyAttachmentToBundle(attachment, to: attachmentsURL)
+                }
+            }
+        }
+        
+        // Generate HTML version
+        let html = generateHTML(from: markdown, chatTitle: chat.name)
+        let indexHTMLURL = bundleURL.appendingPathComponent("index.html")
+        try html.write(to: indexHTMLURL, atomically: true, encoding: .utf8)
+    }
+    
+    private func copyAttachmentToBundle(_ attachment: Attachment, to attachmentsDirectory: URL) async throws {
+        // This would need to be implemented based on how attachments are stored
+        // For now, we'll create a placeholder file with metadata
+        let filename = attachment.displayName
+        let attachmentURL = attachmentsDirectory.appendingPathComponent(filename)
+        
+        let metadata = """
+        Attachment: \(filename)
+        MIME Type: \(attachment.mimeType ?? "unknown")
+        Size: \(attachment.totalBytes ?? 0) bytes
+        Is Sticker: \(attachment.isSticker)
+        """
+        
+        try metadata.write(to: attachmentURL.appendingPathExtension("txt"), atomically: true, encoding: .utf8)
+    }
+    
+    private func generateHTML(from markdown: String, chatTitle: String) -> String {
+        let htmlContent = markdown
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\n", with: "<br>\n")
+        
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>\(chatTitle) - iMessage Export</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    line-height: 1.6;
+                }
+                .message {
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                }
+                .message-header {
+                    font-weight: bold;
+                    color: #0066cc;
+                    margin-bottom: 8px;
+                }
+                .message-content {
+                    color: #333;
+                }
+                .reactions {
+                    margin-top: 8px;
+                    font-size: 14px;
+                    color: #666;
+                    font-style: italic;
+                }
+                .quote {
+                    border-left: 3px solid #ddd;
+                    padding-left: 15px;
+                    margin: 10px 0;
+                    color: #666;
+                    font-style: italic;
+                }
+                h1 {
+                    color: #333;
+                    border-bottom: 2px solid #eee;
+                    padding-bottom: 10px;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>\(chatTitle)</h1>
+            <pre style="white-space: pre-wrap; font-family: inherit;">\(htmlContent)</pre>
+        </body>
+        </html>
+        """
+    }
+    
     // MARK: - Private Implementation
     
     private func exportMessages(
@@ -364,7 +480,7 @@ public final class MarkdownExporter: Sendable {
         let username = formatUsername(message: message, handleMapping: handleMapping)
         let timestamp = dateFormatter.string(from: message.sentDate)
         
-        var output = "### \(username) [\(timestamp)]\n\n"
+        var output = "### @\(username) [\(timestamp)]\n\n"
         
         // Add message content
         if let text = message.effectiveText {
@@ -388,7 +504,7 @@ public final class MarkdownExporter: Sendable {
         let parentUsername = formatUsername(message: parentMessage, handleMapping: handleMapping)
         let parentTimestamp = dateFormatter.string(from: parentMessage.sentDate)
         
-        var output = "### \(username) [\(timestamp)]\n\n"
+        var output = "### @\(username) [\(timestamp)]\n\n"
         
         // Add quoted parent message
         var quotedText = parentMessage.effectiveText ?? ""
@@ -396,7 +512,7 @@ public final class MarkdownExporter: Sendable {
             quotedText = String(quotedText.prefix(options.maxQuoteLength)) + "..."
         }
         
-        output += "> \(parentUsername) [\(parentTimestamp)]:  \n"
+        output += "> @\(parentUsername) [\(parentTimestamp)]:  \n"
         output += "> \(quotedText)\n\n"
         
         // Add reply content
@@ -421,7 +537,7 @@ public final class MarkdownExporter: Sendable {
         for reaction in reactions {
             let username = formatUsername(message: reaction, handleMapping: handleMapping)
             if let emoji = reaction.associatedMessageEmoji {
-                reactionList.append("\(username) \(emoji)")
+                reactionList.append("@\(username) \(emoji)")
             }
         }
         
@@ -459,7 +575,7 @@ public final class MarkdownExporter: Sendable {
             username = sanitizeUsername(username)
         }
         
-        return "@\(username)"
+        return username // Remove @ prefix to use original identifier
     }
     
     private func sanitizeUsername(_ username: String) -> String {

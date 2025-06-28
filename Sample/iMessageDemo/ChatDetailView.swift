@@ -97,13 +97,13 @@ struct ChatDetailView: View {
                         }
                     }
                     
-                    Button("Export Threads Only") {
+                    Button("Export as Bundle") {
                         Task {
-                            await exportToMarkdown(type: .threadsOnly)
+                            await exportToMarkdown(type: .bundle)
                         }
                     }
                 } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Label("Export", systemImage: "square.and.arrow.up.on.square")
                 }
                 .disabled(isLoading || messages.isEmpty)
             }
@@ -172,28 +172,71 @@ struct ChatDetailView: View {
     private func exportToMarkdown(type: ExportType) async {
         do {
             let markdownExporter = exporter.createMarkdownExporter()
-            let markdown: String
             
             switch type {
-            case .all:
-                markdown = try await markdownExporter.exportChat(chatId: chat.id)
-            case .recent(let limit):
-                markdown = try await markdownExporter.exportChatWithLimit(chatId: chat.id, messageLimit: limit)
-            case .lastDays(let days):
-                let dateRange = DateRange.lastDays(days)
-                markdown = try await markdownExporter.exportChatInDateRange(chatId: chat.id, dateRange: dateRange)
-            case .threadsOnly:
-                markdown = try await markdownExporter.exportThreadsOnly(chatId: chat.id)
-            }
-            
-            await MainActor.run {
-                exportedMarkdown = markdown
-                showingExportSheet = true
+            case .bundle:
+                await exportBundle()
+                return
+            default:
+                let markdown: String
+                
+                switch type {
+                case .all:
+                    markdown = try await markdownExporter.exportChat(chatId: chat.id)
+                case .recent(let limit):
+                    markdown = try await markdownExporter.exportChatWithLimit(chatId: chat.id, messageLimit: limit)
+                case .lastDays(let days):
+                    let dateRange = DateRange.lastDays(days)
+                    markdown = try await markdownExporter.exportChatInDateRange(chatId: chat.id, dateRange: dateRange)
+                case .bundle:
+                    return // Already handled above
+                }
+                
+                await MainActor.run {
+                    exportedMarkdown = markdown
+                    showingExportSheet = true
+                }
             }
         } catch {
             // Handle export error - could show an alert
             print("Export failed: \(error)")
         }
+    }
+    
+    private func exportBundle() async {
+        let savePanel = NSSavePanel()
+        savePanel.title = "Export Chat Bundle"
+        savePanel.prompt = "Export"
+        savePanel.nameFieldStringValue = "\(sanitizeFilename(chatTitle)).imessage"
+        savePanel.canCreateDirectories = true
+        
+        await MainActor.run {
+            savePanel.begin { result in
+                if result == .OK, let selectedURL = savePanel.url {
+                    Task {
+                        do {
+                            let markdownExporter = exporter.createMarkdownExporter()
+                            try await markdownExporter.exportChatBundle(chatId: chat.id, to: selectedURL)
+                        } catch {
+                            print("Bundle export failed: \(error)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func sanitizeFilename(_ filename: String) -> String {
+        return filename
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .replacingOccurrences(of: "?", with: "_")
+            .replacingOccurrences(of: "*", with: "_")
+            .replacingOccurrences(of: "<", with: "_")
+            .replacingOccurrences(of: ">", with: "_")
+            .replacingOccurrences(of: "|", with: "_")
+            .replacingOccurrences(of: "\"", with: "_")
+            .filter { !$0.isWhitespace || $0 == " " }
     }
 }
 
@@ -201,5 +244,5 @@ enum ExportType {
     case all
     case recent(Int)
     case lastDays(Int)
-    case threadsOnly
+    case bundle
 }

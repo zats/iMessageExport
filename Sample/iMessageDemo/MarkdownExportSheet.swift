@@ -9,60 +9,78 @@ struct MarkdownExportSheet: View {
     @State private var showingShareSheet = false
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Export Preview")
-                        .font(.headline)
-                    
-                    ScrollView {
-                        Text(markdown)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(Color(NSColor.textBackgroundColor))
-                            .cornerRadius(8)
-                    }
-                    .frame(maxHeight: 400)
-                    
-                    HStack {
-                        Text("\(markdown.count) characters")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Text("\(markdown.components(separatedBy: "\n").count) lines")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+        VStack(spacing: 16) {
+            // Header with title and close button
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Export Markdown")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text(chatTitle)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
                 
-                HStack(spacing: 12) {
-                    Button("Copy to Clipboard") {
-                        copyToClipboard()
-                    }
-                    .buttonStyle(.bordered)
+                Spacer()
+                
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+            }
+            .padding(.horizontal)
+            .padding(.top)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Preview")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                ScrollView {
+                    Text(markdown)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(Color(NSColor.textBackgroundColor))
+                        .cornerRadius(8)
+                }
+                .frame(maxHeight: 400)
+                .padding(.horizontal)
+                
+                HStack {
+                    Text("\(markdown.count) characters")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    Button("Save to File") {
-                        saveToFile()
-                    }
-                    .buttonStyle(.borderedProminent)
+                    Spacer()
+                    
+                    Text("\(markdown.components(separatedBy: "\n").count) lines")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.horizontal)
             }
-            .padding()
-            .navigationTitle("Export Markdown")
-            .navigationSubtitle(chatTitle)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        dismiss()
-                    }
+            
+            HStack(spacing: 12) {
+                Button("Copy to Clipboard") {
+                    copyToClipboard()
                 }
+                .buttonStyle(.bordered)
+                
+                Button("Save to File") {
+                    saveToFile()
+                }
+                .buttonStyle(.borderedProminent)
             }
+            .padding(.horizontal)
+            .padding(.bottom)
         }
         .frame(width: 600, height: 500)
+        .background(Color(NSColor.windowBackgroundColor))
     }
     
     private func copyToClipboard() {

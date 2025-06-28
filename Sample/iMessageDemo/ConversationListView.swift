@@ -27,6 +27,19 @@ struct ConversationListView: View {
         List(filteredChats, id: \.id, selection: $selectedChat) { chat in
             ConversationRowView(chat: chat, handles: handles)
                 .tag(chat)
+                .contextMenu {
+                    Button("Export Chat") {
+                        Task {
+                            await exportChat(chat)
+                        }
+                    }
+                    
+                    Button("Export as Bundle") {
+                        Task {
+                            await exportChatBundle(chat)
+                        }
+                    }
+                }
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, prompt: "Search conversations")
@@ -146,7 +159,7 @@ struct ConversationListView: View {
         }
         
         do {
-            let markdownExporter = exporter.createMarkdownExporter()
+            let markdownExporter = await exporter.createMarkdownExporter()
             let exportResults = try await markdownExporter.exportAllChats()
             
             // Save all exports to a folder
@@ -154,8 +167,6 @@ struct ConversationListView: View {
             savePanel.title = "Export All Conversations"
             savePanel.prompt = "Export"
             savePanel.canCreateDirectories = true
-            savePanel.canChooseDirectories = true
-            savePanel.canChooseFiles = false
             
             await MainActor.run {
                 savePanel.begin { result in
@@ -198,6 +209,63 @@ struct ConversationListView: View {
         
         await MainActor.run {
             isExporting = false
+        }
+    }
+    
+    private func exportChat(_ chat: Chat) async {
+        guard let exporter else { return }
+        
+        do {
+            let markdownExporter = exporter.createMarkdownExporter()
+            let markdown = try await markdownExporter.exportChat(chatId: chat.rowid)
+            
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export Chat"
+            savePanel.nameFieldStringValue = "\(sanitizeFilename(displayName(for: chat))).md"
+            savePanel.allowedContentTypes = [.plainText]
+            
+            await MainActor.run {
+                savePanel.begin { result in
+                    if result == .OK, let url = savePanel.url {
+                        do {
+                            try markdown.write(to: url, atomically: true, encoding: .utf8)
+                        } catch {
+                            print("Failed to save: \(error)")
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("Export failed: \(error)")
+        }
+    }
+    
+    private func exportChatBundle(_ chat: Chat) async {
+        guard let exporter else { return }
+        
+        do {
+            let markdownExporter = exporter.createMarkdownExporter()
+            
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export Chat Bundle"
+            savePanel.nameFieldStringValue = "\(sanitizeFilename(displayName(for: chat))).imessage"
+            savePanel.canCreateDirectories = true
+            
+            await MainActor.run {
+                savePanel.begin { result in
+                    if result == .OK, let url = savePanel.url {
+                        Task {
+                            do {
+                                try await markdownExporter.exportChatBundle(chatId: chat.rowid, to: url)
+                            } catch {
+                                print("Bundle export failed: \(error)")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("Export setup failed: \(error)")
         }
     }
     
