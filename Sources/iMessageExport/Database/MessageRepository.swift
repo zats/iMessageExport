@@ -14,7 +14,7 @@ public final class MessageRepository: Sendable {
     public func fetchAllMessages() async throws -> [Message] {
         let query = """
             SELECT 
-                m.ROWID as rowid, m.guid, m.text, m.service, m.handle_id, m.destination_caller_id, 
+                m.ROWID as rowid, m.guid, m.text, m.attributedBody, m.service, m.handle_id, m.destination_caller_id, 
                 m.subject, m.date, m.date_read, m.date_delivered, m.is_from_me, m.is_read, 
                 m.item_type, m.other_handle, m.share_status, m.share_direction, m.group_title, 
                 m.group_action_type, m.associated_message_guid, m.associated_message_type, 
@@ -40,7 +40,7 @@ public final class MessageRepository: Sendable {
     public func fetchMessages(forChatId chatId: Int32) async throws -> [Message] {
         let query = """
             SELECT 
-                m.ROWID as rowid, m.guid, m.text, m.service, m.handle_id, m.destination_caller_id, 
+                m.ROWID as rowid, m.guid, m.text, m.attributedBody, m.service, m.handle_id, m.destination_caller_id, 
                 m.subject, m.date, m.date_read, m.date_delivered, m.is_from_me, m.is_read, 
                 m.item_type, m.other_handle, m.share_status, m.share_direction, m.group_title, 
                 m.group_action_type, m.associated_message_guid, m.associated_message_type, 
@@ -67,7 +67,7 @@ public final class MessageRepository: Sendable {
     public func fetchMessage(withGuid guid: String) async throws -> Message? {
         let query = """
             SELECT 
-                m.ROWID as rowid, m.guid, m.text, m.service, m.handle_id, m.destination_caller_id, 
+                m.ROWID as rowid, m.guid, m.text, m.attributedBody, m.service, m.handle_id, m.destination_caller_id, 
                 m.subject, m.date, m.date_read, m.date_delivered, m.is_from_me, m.is_read, 
                 m.item_type, m.other_handle, m.share_status, m.share_direction, m.group_title, 
                 m.group_action_type, m.associated_message_guid, m.associated_message_type, 
@@ -94,7 +94,7 @@ public final class MessageRepository: Sendable {
     public func fetchMessagesWithAttachments() async throws -> [Message] {
         let query = """
             SELECT 
-                m.ROWID as rowid, m.guid, m.text, m.service, m.handle_id, m.destination_caller_id, 
+                m.ROWID as rowid, m.guid, m.text, m.attributedBody, m.service, m.handle_id, m.destination_caller_id, 
                 m.subject, m.date, m.date_read, m.date_delivered, m.is_from_me, m.is_read, 
                 m.item_type, m.other_handle, m.share_status, m.share_direction, m.group_title, 
                 m.group_action_type, m.associated_message_guid, m.associated_message_type, 
@@ -126,10 +126,21 @@ public final class MessageRepository: Sendable {
             return nil
         }
         
+        func data(from value: Any?) -> Data? {
+            guard let value else { return nil }
+            if let value = value as? Data {
+                return value
+            } else if let value = value as? Blob {
+                return Data(value.bytes)
+            }
+            return nil
+        }
+        
         return Message(
             rowid: Int32(rowid),
             guid: guid,
             text: row["text"] as? String,
+            attributedBody: data(from: row["attributedBody"]),
             service: row["service"] as? String,
             handleId: (row["handle_id"] as? Int64).map(Int32.init),
             destinationCallerId: row["destination_caller_id"] as? String,

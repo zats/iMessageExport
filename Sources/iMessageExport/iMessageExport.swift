@@ -52,6 +52,11 @@ public final class iMessageExport: Sendable {
         return try await chatRepository.fetchAllChats()
     }
     
+    /// Fetch all chats sorted by last message time (most recent first)
+    public func getAllChatsSortedByLastMessage() async throws -> [Chat] {
+        return try await chatRepository.fetchAllChatsSortedByLastMessage()
+    }
+    
     /// Fetch a specific chat by ID
     public func getChat(withId chatId: Int32) async throws -> Chat? {
         return try await chatRepository.fetchChat(withId: chatId)

@@ -24,6 +24,23 @@ public final class ChatRepository: Sendable {
         }
     }
     
+    /// Fetch all chats sorted by last message time (most recent first)
+    public func fetchAllChatsSortedByLastMessage() async throws -> [Chat] {
+        let query = """
+            SELECT c.ROWID as rowid, c.chat_identifier, c.service_name, c.display_name, c.properties
+            FROM chat c
+            LEFT JOIN chat_message_join cmj ON c.ROWID = cmj.chat_id
+            LEFT JOIN message m ON cmj.message_id = m.ROWID
+            GROUP BY c.ROWID
+            ORDER BY MAX(m.date) DESC NULLS LAST
+        """
+        
+        let results = try connection.execute(query)
+        return results.compactMap { row in
+            parseChat(from: row)
+        }
+    }
+    
     /// Fetch a specific chat by ID
     public func fetchChat(withId chatId: Int32) async throws -> Chat? {
         let query = """
