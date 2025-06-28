@@ -1,8 +1,7 @@
-import XCTest
 @testable import iMessageExport
+import XCTest
 
 final class DatabaseIntegrationTests: XCTestCase {
-    
     private static var testDatabasePath: String {
         guard let bundlePath = Bundle.module.path(forResource: "test", ofType: "db", inDirectory: "Resources") else {
             XCTFail("Could not find test database in bundle")
@@ -13,7 +12,7 @@ final class DatabaseIntegrationTests: XCTestCase {
     
     @DatabaseActor
     private static func createExporter() throws -> iMessageExport {
-        return try iMessageExport(databasePath: testDatabasePath)
+        try iMessageExport(databasePath: testDatabasePath)
     }
     
     func testDatabaseConnection() async throws {
@@ -60,7 +59,7 @@ final class DatabaseIntegrationTests: XCTestCase {
                 XCTAssertTrue(sentDate.timeIntervalSince1970 > 0)
                 
                 // Test message variant
-                let _ = message.variant // Just verify it doesn't crash
+                _ = message.variant // Just verify it doesn't crash
             }
         } else {
             // If no messages, just verify the query worked without error
@@ -205,16 +204,22 @@ final class DatabaseIntegrationTests: XCTestCase {
         case (.normal, .normal), (.edited, .edited), (.sharePlay, .sharePlay), 
              (.audioMessageKept, .audioMessageKept):
             return true
+
         case (.app(_), .app(_)):
             return true
+
         case (.groupAction(_), .groupAction(_)):
             return true
+
         case (.tapback(_, _), .tapback(_, _)):
             return true
+
         case (.locationShare(_), .locationShare(_)):
             return true
+
         case (.unknown(_), .unknown(_)):
             return true
+
         default:
             return false
         }
@@ -226,8 +231,10 @@ final class DatabaseIntegrationTests: XCTestCase {
              (.application(_), .application(_)), (.text(_), .text(_)),
              (.unknown, .unknown):
             return true
+
         case (.other(_), .other(_)):
             return true
+
         default:
             return false
         }

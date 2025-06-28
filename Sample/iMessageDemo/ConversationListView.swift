@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ConversationListView: View {
@@ -54,7 +54,7 @@ struct ConversationListView: View {
                     .toggleStyle(.button)
                     .labelsVisibility(.visible)
                     .disabled(isLoading)
-                    .onChange(of: showContacts) { oldValue, newValue in
+                    .onChange(of: showContacts) { _, _ in
                         contactManager.toggleContactLookup()
                     }
             }
@@ -167,7 +167,6 @@ struct ConversationListView: View {
         if let contactName = contactManager.lookupContactName(for: chat.chatIdentifier) {
             return contactName
         }
-
         
         if chat.isDirectMessage {
             return chat.chatIdentifier
@@ -307,10 +306,13 @@ struct ServiceBadgeView: View {
         switch service.lowercased() {
         case "imessage":
             return .blue
+
         case "sms":
             return .green
+
         case "rcs":
             return .orange
+
         default:
             return .gray
         }

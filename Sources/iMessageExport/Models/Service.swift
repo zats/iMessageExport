@@ -29,14 +29,19 @@ public enum Service: Sendable, Hashable, CaseIterable {
         switch serviceName {
         case "iMessage":
             return .iMessage
+
         case "iMessageLite":
             return .satellite
+
         case "SMS":
             return .sms
+
         case "rcs", "RCS":
             return .rcs
+
         case "":
             return .unknown
+
         default:
             return .other(serviceName)
         }
@@ -48,14 +53,19 @@ extension Service: CustomStringConvertible {
         switch self {
         case .iMessage:
             return "iMessage"
+
         case .sms:
             return "SMS"
+
         case .rcs:
             return "RCS"
+
         case .satellite:
             return "Satellite"
+
         case .other(let name):
             return name
+
         case .unknown:
             return "Unknown"
         }
@@ -63,6 +73,6 @@ extension Service: CustomStringConvertible {
     
     /// User-friendly display name
     public var displayName: String {
-        return description
+        description
     }
 }

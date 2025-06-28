@@ -61,22 +61,31 @@ extension TextEffect: CustomStringConvertible {
         switch self {
         case .default:
             return "Default"
+
         case .bold:
             return "Bold"
+
         case .italic:
             return "Italic"
+
         case .underline:
             return "Underline"
+
         case .strikethrough:
             return "Strikethrough"
+
         case .mention(let contact):
             return "Mention(\(contact))"
+
         case .link(let url):
             return "Link(\(url))"
+
         case .font(let fontName):
             return "Font(\(fontName))"
+
         case .color(let colorHex):
             return "Color(\(colorHex))"
+
         case .other(let effect):
             return "Other(\(effect))"
         }

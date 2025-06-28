@@ -39,10 +39,13 @@ public enum ExpressiveEffect: Sendable, Hashable, Codable {
         switch self {
         case .screen(let effect):
             return "Screen: \(effect.displayName)"
+
         case .bubble(let effect):
             return "Bubble: \(effect.displayName)"
+
         case .unknown(let styleId):
             return "Unknown Effect: \(styleId)"
+
         case .none:
             return "No Effect"
         }
@@ -65,12 +68,16 @@ public enum BubbleEffect: Sendable, Hashable, Codable {
         switch styleId.lowercased() {
         case "impact":
             return .slam
+
         case "loud":
             return .loud
+
         case "gentle":
             return .gentle
+
         case "invisibleink":
             return .invisibleInk
+
         default:
             return nil
         }
@@ -113,22 +120,31 @@ public enum ScreenEffect: Sendable, Hashable, Codable {
         switch styleId.lowercased() {
         case "confetti":
             return .confetti
+
         case "echo":
             return .echo
+
         case "fireworks":
             return .fireworks
+
         case "balloons":
             return .balloons
+
         case "heart":
             return .heart
+
         case "lasers":
             return .lasers
+
         case "shootingstar", "shooting-star":
             return .shootingStar
+
         case "sparkles":
             return .sparkles
+
         case "spotlight":
             return .spotlight
+
         default:
             return nil
         }

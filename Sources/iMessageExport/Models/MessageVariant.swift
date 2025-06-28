@@ -56,20 +56,28 @@ public enum MessageVariant: Sendable, Hashable, Codable {
         switch self {
         case .normal:
             return "Normal Message"
+
         case .edited:
             return "Edited Message"
+
         case .tapback(let action, let tapback):
             return "\(action == .added ? "Added" : "Removed") \(tapback.displayName)"
+
         case .app(let balloon):
             return "App: \(balloon.displayName)"
+
         case .sharePlay:
             return "SharePlay"
+
         case .groupAction(let action):
             return "Group: \(action.description)"
+
         case .audioMessageKept:
             return "Audio Message Kept"
+
         case .locationShare(let status):
             return "Location: \(status)"
+
         case .unknown(let itemType):
             return "Unknown (\(itemType))"
         }
@@ -108,38 +116,55 @@ public enum Tapback: Sendable, Hashable, Codable {
         switch associatedMessageType {
         case 1000:
             return (.added, .sticker)
+
         case 2000:
             return (.added, .loved)
+
         case 2001:
             return (.added, .liked)
+
         case 2002:
             return (.added, .disliked)
+
         case 2003:
             return (.added, .laughed)
+
         case 2004:
             return (.added, .emphasized)
+
         case 2005:
             return (.added, .questioned)
+
         case 2006:
             return (.added, .emoji(emoji))
+
         case 2007:
             return (.added, .sticker)
+
         case 3000:
             return (.removed, .loved)
+
         case 3001:
             return (.removed, .liked)
+
         case 3002:
             return (.removed, .disliked)
+
         case 3003:
             return (.removed, .laughed)
+
         case 3004:
             return (.removed, .emphasized)
+
         case 3005:
             return (.removed, .questioned)
+
         case 3006:
             return (.removed, .emoji(emoji))
+
         case 3007:
             return (.removed, .sticker)
+
         default:
             return nil
         }
@@ -180,16 +205,22 @@ public enum GroupAction: Sendable, Hashable, Codable {
         switch (itemType, groupActionType) {
         case (1, 0):
             return .participantAdded(handleId: otherHandle ?? 0)
+
         case (1, 1):
             return .participantRemoved(handleId: otherHandle ?? 0)
+
         case (2, _):
             return .nameChanged(groupTitle)
+
         case (3, 0):
             return .participantLeft
+
         case (3, 1):
             return .iconChanged
+
         case (3, 2):
             return .iconRemoved
+
         default:
             return nil
         }
@@ -200,14 +231,19 @@ public enum GroupAction: Sendable, Hashable, Codable {
         switch self {
         case .participantAdded(let handleId):
             return "Added participant (handle: \(handleId))"
+
         case .participantRemoved(let handleId):
             return "Removed participant (handle: \(handleId))"
+
         case .nameChanged(let name):
             return "Changed group name to \"\(name ?? "Unknown")\""
+
         case .participantLeft:
             return "Left the group"
+
         case .iconChanged:
             return "Changed group icon"
+
         case .iconRemoved:
             return "Removed group icon"
         }
@@ -253,28 +289,40 @@ public enum CustomBalloon: Sendable, Hashable, Codable {
         switch bundleId {
         case "com.apple.messages.URLBalloonProvider":
             return .url
+
         case "com.apple.Handwriting.HandwritingProvider":
             return .handwriting
+
         case "com.apple.DigitalTouchBalloonProvider":
             return .digitalTouch
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.PassbookUIService.PeerPaymentMessagesExtension":
             return .applePay
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.Fitness.FitnessMessagesExtension":
             return .fitness
+
         case "com.apple.messages.PhotosBalloonProvider":
             return .slideshow
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.SharingViewService.SharingMessagesExtension":
             return .checkIn
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.findmy.FindMyMessagesExtension":
             return .findMy
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.AppStore.MessagesExtension":
             return .appStore
+
         case "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.Music.MessagesExtension":
             return .music
+
         case let id where id.contains("GameCenter"):
             return .game
+
         case let id where id.contains("Business"):
             return .business
+
         default:
             return .application(bundleId)
         }
@@ -317,10 +365,13 @@ public enum ShareStatus: Sendable, Hashable, Codable {
         switch (shareStatus, shareDirection) {
         case (false, _):
             return .notShared
+
         case (true, true):
             return .sharing
+
         case (true, false):
             return .ended
+
         case (true, nil):
             return .unknown(true)
         }

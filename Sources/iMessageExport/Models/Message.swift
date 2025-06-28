@@ -277,7 +277,7 @@ public struct Message: Sendable, Hashable, Codable, Identifiable {
         // Priority 7: App integrations (check balloon bundle ID)
         if associatedMessageType == 0 || associatedMessageType == 2 || associatedMessageType == 3 {
             let balloon = CustomBalloon.from(bundleId: balloonBundleId)
-            if case .unknown(_) = balloon {
+            if case .unknown = balloon {
                 // Fall through to normal message
             } else {
                 return .app(balloon)

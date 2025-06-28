@@ -1,7 +1,7 @@
-import SwiftUI
+@preconcurrency import Contacts
 import iMessageExport
+import SwiftUI
 import UniformTypeIdentifiers
-import Contacts
 
 struct ExportSavePanel: View {
     let chat: Chat
@@ -68,16 +68,14 @@ struct ExportSavePanel: View {
                     VStack(alignment: .leading, spacing: 4) {
                         RadioButton(
                             isSelected: exportDepth == .entireChat,
-                            title: "Entire chat",
-                            action: { exportDepth = .entireChat }
-                        )
+                            title: "Entire chat"
+                        )                            { exportDepth = .entireChat }
                         
                         HStack {
                             RadioButton(
                                 isSelected: exportDepth == .recentMessages,
-                                title: "Recent",
-                                action: { exportDepth = .recentMessages }
-                            )
+                                title: "Recent"
+                            )                                { exportDepth = .recentMessages }
                             
                             TextField("Count", value: $customMessageCount, formatter: NumberFormatter())
                                 .textFieldStyle(.roundedBorder)
@@ -91,9 +89,8 @@ struct ExportSavePanel: View {
                         HStack {
                             RadioButton(
                                 isSelected: exportDepth == .recentDays,
-                                title: "Last",
-                                action: { exportDepth = .recentDays }
-                            )
+                                title: "Last"
+                            )                                { exportDepth = .recentDays }
                             
                             TextField("Days", value: $customDayCount, formatter: NumberFormatter())
                                 .textFieldStyle(.roundedBorder)
@@ -178,12 +175,12 @@ struct ExportSavePanel: View {
     private func createContactLookup() -> ContactLookupFunction? {
         guard useContactNames else { return nil }
         return { @Sendable (identifier: String) async -> String? in
-            return await lookupContactInternal(identifier)
+            await lookupContactInternal(identifier)
         }
     }
     
     private func lookupContactInternal(_ identifier: String) async -> String? {
-        return await withCheckedContinuation { continuation in
+        await withCheckedContinuation { continuation in
             let store = CNContactStore()
             
             // First check authorization status
@@ -194,7 +191,7 @@ struct ExportSavePanel: View {
                 continuation.resume(returning: result)
             } else {
                 // Request authorization if needed
-                store.requestAccess(for: .contacts) { granted, error in
+                store.requestAccess(for: .contacts) { granted, _ in
                     if granted {
                         let result = self.performContactLookup(identifier, store: store)
                         continuation.resume(returning: result)
@@ -234,7 +231,7 @@ struct ExportSavePanel: View {
         let additionalKeys = [
             CNContactNicknameKey,
             CNContactPhoneNumbersKey,
-            CNContactEmailAddressesKey,
+            CNContactEmailAddressesKey
         ] as [CNKeyDescriptor]
         
         let allKeys = [keysToFetch] + additionalKeys
@@ -321,8 +318,10 @@ struct ExportSavePanel: View {
                     switch exportDepth {
                     case .entireChat:
                         options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", contactLookup: contactLookup)
+
                     case .recentMessages:
                         options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", messageLimit: customMessageCount, contactLookup: contactLookup)
+
                     case .recentDays:
                         options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
                     }
@@ -349,8 +348,10 @@ struct ExportSavePanel: View {
                     switch exportDepth {
                     case .entireChat:
                         options = MarkdownExportOptions(attachmentsDirectory: "", contactLookup: contactLookup)
+
                     case .recentMessages:
                         options = MarkdownExportOptions(attachmentsDirectory: "", messageLimit: customMessageCount, contactLookup: contactLookup)
+
                     case .recentDays:
                         options = MarkdownExportOptions(attachmentsDirectory: "", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
                     }
@@ -372,8 +373,10 @@ struct ExportSavePanel: View {
                     switch exportDepth {
                     case .entireChat:
                         options = MarkdownExportOptions(contactLookup: contactLookup)
+
                     case .recentMessages:
                         options = MarkdownExportOptions(messageLimit: customMessageCount, contactLookup: contactLookup)
+
                     case .recentDays:
                         options = MarkdownExportOptions(dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
                     }
@@ -387,8 +390,10 @@ struct ExportSavePanel: View {
                     switch exportDepth {
                     case .entireChat:
                         options = MarkdownExportOptions(attachmentsDirectory: "", contactLookup: contactLookup)
+
                     case .recentMessages:
                         options = MarkdownExportOptions(attachmentsDirectory: "", messageLimit: customMessageCount, contactLookup: contactLookup)
+
                     case .recentDays:
                         options = MarkdownExportOptions(attachmentsDirectory: "", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
                     }
@@ -413,7 +418,6 @@ struct ExportSavePanel: View {
                 onExportComplete()
                 dismiss()
             }
-            
         } catch {
             await MainActor.run {
                 isExporting = false
@@ -423,7 +427,7 @@ struct ExportSavePanel: View {
     }
     
     private func sanitizeFilename(_ filename: String) -> String {
-        return filename
+        filename
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "?", with: "_")

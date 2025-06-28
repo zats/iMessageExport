@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 struct MessageRowView: View {
     let message: Message

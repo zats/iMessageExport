@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 struct ChatDetailView: View {
     let chat: Chat

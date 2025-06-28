@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 struct ContentView: View {
     @State private var selectedChat: Chat?

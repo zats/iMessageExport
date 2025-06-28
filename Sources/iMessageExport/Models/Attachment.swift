@@ -24,16 +24,22 @@ public enum MediaType: Sendable, Hashable, Codable {
         switch self {
         case .image(let subtype):
             return "image/\(subtype)"
+
         case .video(let subtype):
             return "video/\(subtype)"
+
         case .audio(let subtype):
             return "audio/\(subtype)"
+
         case .text(let subtype):
             return "text/\(subtype)"
+
         case .application(let subtype):
             return "application/\(subtype)"
+
         case .other(let mime):
             return mime
+
         case .unknown:
             return ""
         }
@@ -52,14 +58,19 @@ public enum MediaType: Sendable, Hashable, Codable {
         switch type {
         case "image":
             return .image(subtype)
+
         case "video":
             return .video(subtype)
+
         case "audio":
             return .audio(subtype)
+
         case "text":
             return .text(subtype)
+
         case "application":
             return .application(subtype)
+
         default:
             return .other(mimeType)
         }

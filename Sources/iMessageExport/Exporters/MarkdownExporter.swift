@@ -81,7 +81,7 @@ public struct DateRange: Sendable {
     
     /// Check if a date falls within this range
     public func contains(_ date: Date) -> Bool {
-        return date >= startDate && date <= endDate
+        date >= startDate && date <= endDate
     }
 }
 
@@ -565,7 +565,6 @@ public final class MarkdownExporter: Sendable {
         let linkPattern = #"\[([^\]]+)\]\(([^)]+)\)"#
         if let regex = try? NSRegularExpression(pattern: linkPattern),
            let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
-            
             let textRange = Range(match.range(at: 1), in: trimmed)!
             let urlRange = Range(match.range(at: 2), in: trimmed)!
             
@@ -584,7 +583,6 @@ public final class MarkdownExporter: Sendable {
         
         if let regex = try? NSRegularExpression(pattern: pattern),
            let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) {
-            
             let filenameRange = Range(match.range(at: 1), in: line)!
             let pathRange = Range(match.range(at: 2), in: line)!
             
@@ -609,7 +607,7 @@ public final class MarkdownExporter: Sendable {
     }
     
     private func escapeHTML(_ text: String) -> String {
-        return text
+        text
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
@@ -899,13 +897,11 @@ public final class MarkdownExporter: Sendable {
             username = "unknown"
         }
         
-        
         return username // Use identifier as-is, no @ prefix
     }
     
-    
     private func sanitizeFilename(_ filename: String) -> String {
-        return filename
+        filename
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "?", with: "_")
@@ -951,10 +947,13 @@ public enum MarkdownExportError: Error, LocalizedError {
         switch self {
         case .chatNotFound(let chatId):
             return "Chat with ID \(chatId) not found"
+
         case .chatNotFoundByIdentifier(let identifier):
             return "Chat with identifier '\(identifier)' not found"
+
         case .attachmentNotFound(let attachmentId):
             return "Attachment with ID \(attachmentId) not found"
+
         case .exportDirectoryNotFound(let path):
             return "Export directory not found: \(path)"
         }

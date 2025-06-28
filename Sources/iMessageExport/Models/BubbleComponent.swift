@@ -20,10 +20,13 @@ extension BubbleComponent: CustomStringConvertible {
         switch self {
         case .text(let attributes):
             return "Text(\(attributes.count) attributes)"
+
         case .attachment(let meta):
             return "Attachment(guid: \(meta.guid ?? "nil"))"
+
         case .app:
             return "App"
+
         case .retracted:
             return "Retracted"
         }

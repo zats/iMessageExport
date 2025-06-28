@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 struct MessageRowView: View {
     let message: Message
@@ -259,7 +259,7 @@ struct LocationShareView: View {
         HStack {
             Image(systemName: "location")
                 .foregroundColor(.blue)
-            Text("Location: \(status)")
+            Text("Location: \(String(describing: status))")
         }
         .padding()
         .background(
@@ -335,7 +335,6 @@ struct MessageMetadataView: View {
                         .foregroundColor(.secondary)
                 }
             }
-
         }
     }
 }

@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 @main
 struct iMessageDemoApp: App {

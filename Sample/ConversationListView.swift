@@ -1,5 +1,5 @@
-import SwiftUI
 import iMessageExport
+import SwiftUI
 
 struct ConversationListView: View {
     @Binding var selectedChat: Chat?
@@ -244,14 +244,19 @@ extension Service {
         switch self {
         case .iMessage:
             return .blue
+
         case .sms:
             return .green
+
         case .rcs:
             return .orange
+
         case .satellite:
             return .purple
-        case .other(_):
+
+        case .other:
             return .teal
+
         case .unknown:
             return .gray
         }

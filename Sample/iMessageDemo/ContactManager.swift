@@ -1,6 +1,6 @@
-import Foundation
-import Contacts
 import Combine
+import Contacts
+import Foundation
 
 @MainActor
 class ContactManager: ObservableObject {
@@ -28,7 +28,7 @@ class ContactManager: ObservableObject {
     }
     
     private func requestContactAccess() {
-        store.requestAccess(for: .contacts) { [weak self] granted, error in
+        store.requestAccess(for: .contacts) { [weak self] granted, _ in
             DispatchQueue.main.async {
                 self?.hasAccess = granted
                 if granted {
@@ -56,7 +56,7 @@ class ContactManager: ObservableObject {
     }
     
     private func performContactLookup(_ identifier: String) -> String? {
-        return findContactByPhoneNumber(identifier) ?? findContactByEmail(identifier)
+        findContactByPhoneNumber(identifier) ?? findContactByEmail(identifier)
     }
     
     private func findContactByPhoneNumber(_ phoneNumber: String) -> String? {
@@ -83,7 +83,7 @@ class ContactManager: ObservableObject {
         let additionalKeys = [
             CNContactNicknameKey,
             CNContactPhoneNumbersKey,
-            CNContactEmailAddressesKey,
+            CNContactEmailAddressesKey
         ] as [CNKeyDescriptor]
         
         let allKeys = [keysToFetch] + additionalKeys

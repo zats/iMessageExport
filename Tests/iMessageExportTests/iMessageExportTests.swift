@@ -1,8 +1,7 @@
-import XCTest
 @testable import iMessageExport
+import XCTest
 
 final class iMessageExportTests: XCTestCase {
-    
     func testServiceCreation() {
         let iMessageService = Service.from("iMessage")
         XCTAssertEqual(iMessageService, .iMessage)

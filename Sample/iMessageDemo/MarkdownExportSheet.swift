@@ -109,7 +109,7 @@ struct MarkdownExportSheet: View {
     }
     
     private func sanitizeFilename(_ filename: String) -> String {
-        return filename
+        filename
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "?", with: "_")
