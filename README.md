@@ -58,6 +58,10 @@ To run the demo app, open `Sample/iMessageDemo.xcodeproj` in Xcode and run the `
 *   On macOS, your app may need Full Disk Access permission to read the iMessage database.
 *   The library opens the database in read-only mode for safety.
 
+## Screenshots
+
+![Screenshot](screenshot.png)
+
 ## Credits
 
 Based on the excellent [imessage-exporter](https://github.com/ReagentX/imessage-exporter) Rust project by Christopher Sardegna.
