@@ -137,4 +137,11 @@ public final class iMessageExport: Sendable {
     public func close() async {
         connection.close()
     }
+    
+    // MARK: - Export Operations
+    
+    /// Create a markdown exporter for this database
+    public func createMarkdownExporter(options: MarkdownExportOptions = MarkdownExportOptions()) -> MarkdownExporter {
+        return MarkdownExporter(exporter: self, options: options)
+    }
 }
