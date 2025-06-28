@@ -1,17 +1,8 @@
 # iMessageExport
 
-**Repository:** [https://github.com/zats/iMessageExport.git](https://github.com/zats/iMessageExport.git)
-
 A Swift package for reading and analyzing iMessage data from the macOS Messages app database. Built with Swift 6 concurrency, it provides comprehensive semantic classification of message types.
 
-## Features
-
-*   **Thread-safe database access** using Swift 6 actors.
-*   **Semantic message classification** for various message types (reactions, group actions, app integrations, effects).
-*   **Type-safe enums** for all message variants and properties.
-*   **SwiftUI-ready** data models with computed properties.
-*   **Contact name lookup** for improved readability.
-*   **Case and unicode insensitive search** for conversations by name or identifier.
+![Screenshot](screenshot.png)
 
 ## Installation
 
@@ -53,16 +44,6 @@ A native macOS SwiftUI demo application is included in the `Sample/` directory, 
 To run the demo app, open `Sample/iMessageDemo.xcodeproj` in Xcode and run the `iMessageDemo` scheme.
 
 Alternatively, you can download the latest release DMG for macOS Apple Silicon here: [iMessageExport.dmg](https://github.com/zats/iMessageExport/releases/download/v1.0.0/iMessageExport.dmg)
-
-## Security Considerations
-
-*   This library only reads data; it never modifies the iMessage database.
-*   On macOS, your app may need Full Disk Access permission to read the iMessage database.
-*   The library opens the database in read-only mode for safety.
-
-## Screenshots
-
-![Screenshot](screenshot.png)
 
 ## Credits
 
