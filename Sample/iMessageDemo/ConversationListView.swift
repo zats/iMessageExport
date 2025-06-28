@@ -14,7 +14,6 @@ struct ConversationListView: View {
     @State private var isExporting = false
     @State private var exportProgress: Double = 0
     @State private var chatToExport: Chat?
-    @State private var showingExportPanel = false
     
     var filteredChats: [Chat] {
         if searchText.isEmpty {
@@ -33,8 +32,8 @@ struct ConversationListView: View {
                 .contextMenu {
                     Button("Export Chat...") {
                         chatToExport = chat
-                        showingExportPanel = true
                     }
+                    .disabled(exporter == nil)
                 }
         }
         .listStyle(.sidebar)
@@ -113,11 +112,10 @@ struct ConversationListView: View {
                 await loadData()
             }
         }
-        .sheet(isPresented: $showingExportPanel) {
-            if let chat = chatToExport, let exporter = exporter {
+        .sheet(item: $chatToExport) { chat in
+            if let exporter = exporter {
                 ExportSavePanel(chat: chat, exporter: exporter) {
                     // Export completed callback
-                    chatToExport = nil
                 }
             }
         }
