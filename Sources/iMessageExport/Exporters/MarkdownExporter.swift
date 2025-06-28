@@ -11,8 +11,6 @@ public struct MarkdownExportOptions: Sendable {
     public let includeReactions: Bool
     /// Whether to include system messages and announcements
     public let includeSystemMessages: Bool
-    /// Whether to sanitize usernames by removing special characters
-    public let sanitizeUsernames: Bool
     /// Maximum length for quoted message context (0 = unlimited)
     public let maxQuoteLength: Int
     /// Date range filter for messages
@@ -30,7 +28,6 @@ public struct MarkdownExportOptions: Sendable {
         attachmentsDirectory: String = "./attachments",
         includeReactions: Bool = true,
         includeSystemMessages: Bool = false,
-        sanitizeUsernames: Bool = true,
         maxQuoteLength: Int = 150,
         dateRange: DateRange? = nil,
         messageLimit: Int = 0,
@@ -41,7 +38,6 @@ public struct MarkdownExportOptions: Sendable {
         self.attachmentsDirectory = attachmentsDirectory
         self.includeReactions = includeReactions
         self.includeSystemMessages = includeSystemMessages
-        self.sanitizeUsernames = sanitizeUsernames
         self.maxQuoteLength = maxQuoteLength
         self.dateRange = dateRange
         self.messageLimit = messageLimit
@@ -165,7 +161,6 @@ public final class MarkdownExporter: Sendable {
             attachmentsDirectory: threadOptions.attachmentsDirectory,
             includeReactions: threadOptions.includeReactions,
             includeSystemMessages: threadOptions.includeSystemMessages,
-            sanitizeUsernames: threadOptions.sanitizeUsernames,
             maxQuoteLength: threadOptions.maxQuoteLength,
             dateRange: threadOptions.dateRange,
             messageLimit: threadOptions.messageLimit,
@@ -185,7 +180,6 @@ public final class MarkdownExporter: Sendable {
             attachmentsDirectory: limitedOptions.attachmentsDirectory,
             includeReactions: limitedOptions.includeReactions,
             includeSystemMessages: limitedOptions.includeSystemMessages,
-            sanitizeUsernames: limitedOptions.sanitizeUsernames,
             maxQuoteLength: limitedOptions.maxQuoteLength,
             dateRange: limitedOptions.dateRange,
             messageLimit: messageLimit,
@@ -205,7 +199,6 @@ public final class MarkdownExporter: Sendable {
             attachmentsDirectory: dateRangeOptions.attachmentsDirectory,
             includeReactions: dateRangeOptions.includeReactions,
             includeSystemMessages: dateRangeOptions.includeSystemMessages,
-            sanitizeUsernames: dateRangeOptions.sanitizeUsernames,
             maxQuoteLength: dateRangeOptions.maxQuoteLength,
             dateRange: dateRange,
             messageLimit: dateRangeOptions.messageLimit,
@@ -225,7 +218,6 @@ public final class MarkdownExporter: Sendable {
             attachmentsDirectory: threadsOptions.attachmentsDirectory,
             includeReactions: threadsOptions.includeReactions,
             includeSystemMessages: threadsOptions.includeSystemMessages,
-            sanitizeUsernames: threadsOptions.sanitizeUsernames,
             maxQuoteLength: threadsOptions.maxQuoteLength,
             dateRange: threadsOptions.dateRange,
             messageLimit: threadsOptions.messageLimit,
@@ -907,22 +899,10 @@ public final class MarkdownExporter: Sendable {
             username = "unknown"
         }
         
-        if options.sanitizeUsernames {
-            username = sanitizeUsername(username)
-        }
         
         return username // Use identifier as-is, no @ prefix
     }
     
-    private func sanitizeUsername(_ username: String) -> String {
-        // Remove special characters and spaces, keep only alphanumeric and basic punctuation
-        return username
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "@", with: "")
-            .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: "+", with: "")
-            .filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" || $0 == "." }
-    }
     
     private func sanitizeFilename(_ filename: String) -> String {
         return filename

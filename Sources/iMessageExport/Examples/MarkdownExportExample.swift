@@ -15,7 +15,6 @@ public enum MarkdownExportExample {
             attachmentsDirectory: "./attachments",
             includeReactions: true,
             includeSystemMessages: false,
-            sanitizeUsernames: true,
             maxQuoteLength: 150
         )
         
@@ -121,7 +120,6 @@ public enum MarkdownExportExample {
             attachmentsDirectory: "./attachments",
             includeReactions: true,
             includeSystemMessages: false,
-            sanitizeUsernames: true,
             maxQuoteLength: 100,
             dateRange: DateRange.lastDays(7), // Only last 7 days
             messageLimit: 50, // Max 50 messages

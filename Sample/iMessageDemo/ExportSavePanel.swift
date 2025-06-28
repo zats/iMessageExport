@@ -229,18 +229,17 @@ struct ExportSavePanel: View {
     }
     
     private func findContactWithPredicate(_ predicate: NSPredicate, store: CNContactStore) throws -> String? {
-        let keysToFetch = [
-            CNContactGivenNameKey,
-            CNContactFamilyNameKey,
-            CNContactMiddleNameKey,
+        // Get all keys that CNContactFormatter might need
+        let keysToFetch = CNContactFormatter.descriptorForRequiredKeys(for: .fullName)
+        let additionalKeys = [
             CNContactNicknameKey,
-            CNContactNamePrefixKey,
-            CNContactNameSuffixKey,
             CNContactPhoneNumbersKey,
             CNContactEmailAddressesKey,
         ] as [CNKeyDescriptor]
         
-        let contacts = try store.unifiedContacts(matching: predicate, keysToFetch: keysToFetch)
+        let allKeys = [keysToFetch] + additionalKeys
+        
+        let contacts = try store.unifiedContacts(matching: predicate, keysToFetch: allKeys)
         
         guard let contact = contacts.first else { return nil }
         
