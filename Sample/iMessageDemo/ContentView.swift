@@ -21,19 +21,19 @@ struct ContentView: View {
                 ChatDetailView(chat: selectedChat, exporter: exporter)
             } else {
                 VStack(spacing: 20) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 60))
-                        .foregroundColor(.secondary)
-                    Text("Select a conversation to view messages")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    
-                    if isLoading {
-                        ProgressView("Loading conversations...")
-                            .padding(.top)
-                    }
-                    
-                    if error != nil {
+                    if error == nil {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text("Select a conversation to view messages")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        
+                        if isLoading {
+                            ProgressView("Loading conversations...")
+                                .padding(.top)
+                        }                        
+                    } else {
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.shield")
                                 .font(.largeTitle)

@@ -1,6 +1,7 @@
 import SwiftUI
 import iMessageExport
 import UniformTypeIdentifiers
+import Contacts
 
 struct ExportSavePanel: View {
     let chat: Chat
@@ -13,6 +14,8 @@ struct ExportSavePanel: View {
     @State private var exportDepth: ExportDepth = .entireChat
     @State private var customMessageCount: Int = 50
     @State private var customDayCount: Int = 7
+    @State private var exportAssets: Bool = true
+    @State private var useContactNames: Bool = true
     @State private var filename: String = ""
     @State private var isExporting = false
     @State private var exportProgress: Double = 0
@@ -103,6 +106,20 @@ struct ExportSavePanel: View {
                     }
                 }
                 
+                // Export Options
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Options")
+                        .font(.headline)
+                    
+                    Toggle("Export attachments", isOn: $exportAssets)
+                        .help(exportFormat == .bundle ? 
+                              "Creates attachments/ folder in bundle" : 
+                              "Creates [filename]_attachments/ folder next to .md file")
+                    
+                    Toggle("Use contact names", isOn: $useContactNames)
+                        .help("Uses display names from Contacts app instead of phone numbers/emails")
+                }
+                
                 // Filename
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Save As")
@@ -158,6 +175,91 @@ struct ExportSavePanel: View {
         }
     }
     
+    private func createContactLookup() -> ContactLookupFunction? {
+        guard useContactNames else { return nil }
+        return { @Sendable (identifier: String) async -> String? in
+            return await lookupContactInternal(identifier)
+        }
+    }
+    
+    private func lookupContactInternal(_ identifier: String) async -> String? {
+        return await withCheckedContinuation { continuation in
+            let store = CNContactStore()
+            
+            // First check authorization status
+            let status = CNContactStore.authorizationStatus(for: .contacts)
+            
+            if status == .authorized {
+                let result = performContactLookup(identifier, store: store)
+                continuation.resume(returning: result)
+            } else {
+                // Request authorization if needed
+                store.requestAccess(for: .contacts) { granted, error in
+                    if granted {
+                        let result = self.performContactLookup(identifier, store: store)
+                        continuation.resume(returning: result)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func performContactLookup(_ identifier: String, store: CNContactStore) -> String? {
+        findContactByPhoneNumber(identifier, store: store) ?? findContactByEmail(identifier, store: store)
+    }
+    
+    private func findContactByPhoneNumber(_ phoneNumber: String, store: CNContactStore) -> String? {
+        do {
+            let predicate = CNContact.predicateForContacts(matching: CNPhoneNumber(stringValue: phoneNumber))
+            return try findContactWithPredicate(predicate, store: store)
+        } catch {
+            return nil
+        }
+    }
+    
+    private func findContactByEmail(_ email: String, store: CNContactStore) -> String? {
+        do {
+            let predicate = CNContact.predicateForContacts(matchingEmailAddress: email)
+            return try findContactWithPredicate(predicate, store: store)
+        } catch {
+            return nil
+        }
+    }
+    
+    private func findContactWithPredicate(_ predicate: NSPredicate, store: CNContactStore) throws -> String? {
+        let keysToFetch = [
+            CNContactGivenNameKey,
+            CNContactFamilyNameKey,
+            CNContactMiddleNameKey,
+            CNContactNicknameKey,
+            CNContactNamePrefixKey,
+            CNContactNameSuffixKey,
+            CNContactPhoneNumbersKey,
+            CNContactEmailAddressesKey,
+        ] as [CNKeyDescriptor]
+        
+        let contacts = try store.unifiedContacts(matching: predicate, keysToFetch: keysToFetch)
+        
+        guard let contact = contacts.first else { return nil }
+        
+        // Use nickname if available
+        if !contact.nickname.isEmpty {
+            return contact.nickname
+        }
+        
+        // Use CNContactFormatter for proper display name formatting
+        let formatter = CNContactFormatter()
+        formatter.style = .fullName
+        
+        if let displayName = formatter.string(from: contact), !displayName.isEmpty {
+            return displayName
+        }
+        
+        return nil
+    }
+    
     private var chatTitle: String {
         if let displayName = chat.displayName, !displayName.isEmpty {
             return displayName
@@ -201,7 +303,7 @@ struct ExportSavePanel: View {
     
     private func exportToURL(_ url: URL) async {
         do {
-            let markdownExporter = await exporter.createMarkdownExporter()
+            _ = await exporter.createMarkdownExporter()
             
             await MainActor.run { exportProgress = 0.3 }
             
@@ -209,14 +311,53 @@ struct ExportSavePanel: View {
             case .markdown:
                 let markdown: String
                 
-                switch exportDepth {
-                case .entireChat:
-                    markdown = try await markdownExporter.exportChat(chatId: chat.rowid)
-                case .recentMessages:
-                    markdown = try await markdownExporter.exportChatWithLimit(chatId: chat.rowid, messageLimit: customMessageCount)
-                case .recentDays:
-                    let dateRange = DateRange.lastDays(customDayCount)
-                    markdown = try await markdownExporter.exportChatInDateRange(chatId: chat.rowid, dateRange: dateRange)
+                // For markdown exports with assets, create a custom exporter with appropriate attachments directory
+                if exportAssets {
+                    let attachmentsDirName = url.deletingPathExtension().lastPathComponent + "_attachments"
+                    let attachmentsDir = url.deletingLastPathComponent().appendingPathComponent(attachmentsDirName)
+                    
+                    let contactLookup: ContactLookupFunction? = createContactLookup()
+                    
+                    let options: MarkdownExportOptions
+                    switch exportDepth {
+                    case .entireChat:
+                        options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", contactLookup: contactLookup)
+                    case .recentMessages:
+                        options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", messageLimit: customMessageCount, contactLookup: contactLookup)
+                    case .recentDays:
+                        options = MarkdownExportOptions(attachmentsDirectory: "./\(attachmentsDirName)", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
+                    }
+                    
+                    let customExporter = await MarkdownExporter(exporter: exporter, options: options)
+                    markdown = try await customExporter.exportChat(chatId: chat.rowid)
+                    
+                    // Create attachments directory and copy files
+                    try FileManager.default.createDirectory(at: attachmentsDir, withIntermediateDirectories: true)
+                    let messages = try await exporter.getMessages(forChatId: chat.rowid)
+                    for message in messages {
+                        if message.hasAttachments {
+                            let attachments = try await exporter.getAttachments(forMessageId: message.rowid)
+                            for attachment in attachments {
+                                try await customExporter.copyAttachmentToBundle(attachment, to: attachmentsDir)
+                            }
+                        }
+                    }
+                } else {
+                    // Export without assets - use default options but no attachments directory
+                    let contactLookup: ContactLookupFunction? = createContactLookup()
+                    
+                    let options: MarkdownExportOptions
+                    switch exportDepth {
+                    case .entireChat:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", contactLookup: contactLookup)
+                    case .recentMessages:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", messageLimit: customMessageCount, contactLookup: contactLookup)
+                    case .recentDays:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
+                    }
+                    
+                    let customExporter = await MarkdownExporter(exporter: exporter, options: options)
+                    markdown = try await customExporter.exportChat(chatId: chat.rowid)
                 }
                 
                 await MainActor.run { exportProgress = 0.8 }
@@ -224,20 +365,47 @@ struct ExportSavePanel: View {
                 try markdown.write(to: url, atomically: true, encoding: .utf8)
                 
             case .bundle:
-                // For bundle export, we need to adjust the exporter options based on depth
+                // For bundle export, we need to adjust the exporter options based on depth and assets preference
+                let contactLookup: ContactLookupFunction? = createContactLookup()
                 let options: MarkdownExportOptions
                 
-                switch exportDepth {
-                case .entireChat:
-                    options = MarkdownExportOptions()
-                case .recentMessages:
-                    options = MarkdownExportOptions(messageLimit: customMessageCount)
-                case .recentDays:
-                    options = MarkdownExportOptions(dateRange: DateRange.lastDays(customDayCount))
+                if exportAssets {
+                    switch exportDepth {
+                    case .entireChat:
+                        options = MarkdownExportOptions(contactLookup: contactLookup)
+                    case .recentMessages:
+                        options = MarkdownExportOptions(messageLimit: customMessageCount, contactLookup: contactLookup)
+                    case .recentDays:
+                        options = MarkdownExportOptions(dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
+                    }
+                    
+                    let customExporter = await MarkdownExporter(exporter: exporter, options: options)
+                    try await customExporter.exportChatBundle(chatId: chat.rowid, to: url)
+                } else {
+                    // Export bundle without attachments - create minimal bundle
+                    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                    
+                    switch exportDepth {
+                    case .entireChat:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", contactLookup: contactLookup)
+                    case .recentMessages:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", messageLimit: customMessageCount, contactLookup: contactLookup)
+                    case .recentDays:
+                        options = MarkdownExportOptions(attachmentsDirectory: "", dateRange: DateRange.lastDays(customDayCount), contactLookup: contactLookup)
+                    }
+                    
+                    let customExporter = await MarkdownExporter(exporter: exporter, options: options)
+                    
+                    // Export markdown
+                    let markdown = try await customExporter.exportChat(chatId: chat.rowid)
+                    let indexMarkdownURL = url.appendingPathComponent("index.md")
+                    try markdown.write(to: indexMarkdownURL, atomically: true, encoding: .utf8)
+                    
+                    // Generate HTML version
+                    let html = try await customExporter.generateHTML(from: markdown, chatTitle: chatTitle)
+                    let indexHTMLURL = url.appendingPathComponent("index.html")
+                    try html.write(to: indexHTMLURL, atomically: true, encoding: .utf8)
                 }
-                
-                let customExporter = await MarkdownExporter(exporter: exporter, options: options)
-                try await customExporter.exportChatBundle(chatId: chat.rowid, to: url)
             }
             
             await MainActor.run {

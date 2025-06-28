@@ -1,5 +1,8 @@
 import Foundation
 
+/// Contact lookup function type for resolving identifiers to display names
+public typealias ContactLookupFunction = @Sendable (String) async -> String?
+
 /// Configuration options for markdown export
 public struct MarkdownExportOptions: Sendable {
     /// Directory path where attachment files should be copied
@@ -20,6 +23,8 @@ public struct MarkdownExportOptions: Sendable {
     public let threadsOnly: Bool
     /// Specific thread originator GUID to export (nil = all threads)
     public let specificThreadGuid: String?
+    /// Optional contact lookup function for resolving identifiers to display names
+    public let contactLookup: ContactLookupFunction?
     
     public init(
         attachmentsDirectory: String = "./attachments",
@@ -30,7 +35,8 @@ public struct MarkdownExportOptions: Sendable {
         dateRange: DateRange? = nil,
         messageLimit: Int = 0,
         threadsOnly: Bool = false,
-        specificThreadGuid: String? = nil
+        specificThreadGuid: String? = nil,
+        contactLookup: ContactLookupFunction? = nil
     ) {
         self.attachmentsDirectory = attachmentsDirectory
         self.includeReactions = includeReactions
@@ -41,6 +47,7 @@ public struct MarkdownExportOptions: Sendable {
         self.messageLimit = messageLimit
         self.threadsOnly = threadsOnly
         self.specificThreadGuid = specificThreadGuid
+        self.contactLookup = contactLookup
     }
 }
 
@@ -163,7 +170,8 @@ public final class MarkdownExporter: Sendable {
             dateRange: threadOptions.dateRange,
             messageLimit: threadOptions.messageLimit,
             threadsOnly: false,
-            specificThreadGuid: threadGuid
+            specificThreadGuid: threadGuid,
+            contactLookup: threadOptions.contactLookup
         )
         
         let threadExporter = MarkdownExporter(exporter: exporter, options: threadOptions)
@@ -182,7 +190,8 @@ public final class MarkdownExporter: Sendable {
             dateRange: limitedOptions.dateRange,
             messageLimit: messageLimit,
             threadsOnly: limitedOptions.threadsOnly,
-            specificThreadGuid: limitedOptions.specificThreadGuid
+            specificThreadGuid: limitedOptions.specificThreadGuid,
+            contactLookup: limitedOptions.contactLookup
         )
         
         let limitedExporter = MarkdownExporter(exporter: exporter, options: limitedOptions)
@@ -201,7 +210,8 @@ public final class MarkdownExporter: Sendable {
             dateRange: dateRange,
             messageLimit: dateRangeOptions.messageLimit,
             threadsOnly: dateRangeOptions.threadsOnly,
-            specificThreadGuid: dateRangeOptions.specificThreadGuid
+            specificThreadGuid: dateRangeOptions.specificThreadGuid,
+            contactLookup: dateRangeOptions.contactLookup
         )
         
         let dateRangeExporter = MarkdownExporter(exporter: exporter, options: dateRangeOptions)
@@ -220,7 +230,8 @@ public final class MarkdownExporter: Sendable {
             dateRange: threadsOptions.dateRange,
             messageLimit: threadsOptions.messageLimit,
             threadsOnly: true,
-            specificThreadGuid: threadsOptions.specificThreadGuid
+            specificThreadGuid: threadsOptions.specificThreadGuid,
+            contactLookup: threadsOptions.contactLookup
         )
         
         let threadsExporter = MarkdownExporter(exporter: exporter, options: threadsOptions)
@@ -258,12 +269,12 @@ public final class MarkdownExporter: Sendable {
         }
         
         // Generate HTML version
-        let html = generateHTML(from: markdown, chatTitle: chat.name)
+        let html = try await generateHTML(from: markdown, chatTitle: chat.name)
         let indexHTMLURL = bundleURL.appendingPathComponent("index.html")
         try html.write(to: indexHTMLURL, atomically: true, encoding: .utf8)
     }
     
-    private func copyAttachmentToBundle(_ attachment: Attachment, to attachmentsDirectory: URL) async throws {
+    public func copyAttachmentToBundle(_ attachment: Attachment, to attachmentsDirectory: URL) async throws {
         // Get the original file path and expand ~ if needed
         let originalPath: String
         if let filename = attachment.filename {
@@ -345,12 +356,9 @@ public final class MarkdownExporter: Sendable {
         }
     }
     
-    private func generateHTML(from markdown: String, chatTitle: String) -> String {
-        let htmlContent = markdown
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\n", with: "<br>\n")
+    public func generateHTML(from markdown: String, chatTitle: String) async throws -> String {
+        // Parse the markdown and convert to proper HTML structure
+        let htmlBody = try await convertMarkdownToHTML(markdown)
         
         return """
         <!DOCTYPE html>
@@ -362,51 +370,259 @@ public final class MarkdownExporter: Sendable {
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    max-width: 800px;
+                    max-width: 900px;
                     margin: 0 auto;
                     padding: 20px;
                     line-height: 1.6;
+                    background-color: #f5f5f7;
+                }
+                .chat-container {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 20px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+                .chat-title {
+                    color: #1d1d1f;
+                    border-bottom: 2px solid #e5e5e7;
+                    padding-bottom: 16px;
+                    margin-bottom: 24px;
+                    font-size: 28px;
+                    font-weight: 600;
                 }
                 .message {
-                    margin-bottom: 20px;
-                    padding: 15px;
-                    background: #f8f9fa;
-                    border-radius: 8px;
+                    margin-bottom: 16px;
+                    padding: 12px 16px;
+                    border-radius: 18px;
+                    max-width: 70%;
+                    word-wrap: break-word;
+                }
+                .message.from-me {
+                    background: #007aff;
+                    color: white;
+                    margin-left: auto;
+                    text-align: right;
+                }
+                .message.from-other {
+                    background: #e5e5ea;
+                    color: #1d1d1f;
                 }
                 .message-header {
-                    font-weight: bold;
-                    color: #0066cc;
-                    margin-bottom: 8px;
+                    font-size: 12px;
+                    opacity: 0.7;
+                    margin-bottom: 4px;
+                    font-weight: 500;
                 }
                 .message-content {
-                    color: #333;
+                    margin: 0;
+                }
+                .message-content img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 8px;
+                    margin: 8px 0;
+                    display: block;
+                }
+                .message-content video {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 8px;
+                    margin: 8px 0;
+                    display: block;
+                }
+                .attachment-link {
+                    display: inline-block;
+                    padding: 8px 12px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    text-decoration: none;
+                    color: inherit;
+                    margin: 4px 0;
+                    border: 1px solid rgba(255,255,255,0.3);
+                }
+                .message.from-other .attachment-link {
+                    background: rgba(0,0,0,0.05);
+                    border: 1px solid rgba(0,0,0,0.1);
                 }
                 .reactions {
                     margin-top: 8px;
-                    font-size: 14px;
-                    color: #666;
+                    font-size: 11px;
+                    opacity: 0.8;
                     font-style: italic;
                 }
                 .quote {
-                    border-left: 3px solid #ddd;
-                    padding-left: 15px;
-                    margin: 10px 0;
-                    color: #666;
+                    border-left: 3px solid rgba(255,255,255,0.3);
+                    padding-left: 12px;
+                    margin: 8px 0;
                     font-style: italic;
+                    opacity: 0.8;
                 }
-                h1 {
-                    color: #333;
-                    border-bottom: 2px solid #eee;
-                    padding-bottom: 10px;
+                .message.from-other .quote {
+                    border-left-color: rgba(0,0,0,0.2);
                 }
             </style>
         </head>
         <body>
-            <h1>\(chatTitle)</h1>
-            <pre style="white-space: pre-wrap; font-family: inherit;">\(htmlContent)</pre>
+            <div class="chat-container">
+                <h1 class="chat-title">\(escapeHTML(chatTitle))</h1>
+                \(htmlBody)
+            </div>
         </body>
         </html>
         """
+    }
+    
+    private func convertMarkdownToHTML(_ markdown: String) async throws -> String {
+        let lines = markdown.components(separatedBy: "\n")
+        var html = ""
+        var i = 0
+        
+        while i < lines.count {
+            let line = lines[i].trimmingCharacters(in: .whitespaces)
+            
+            // Skip empty lines and separators
+            if line.isEmpty || line == "---" {
+                i += 1
+                continue
+            }
+            
+            // Parse message headers (### username [timestamp])
+            if line.hasPrefix("### ") {
+                let headerContent = String(line.dropFirst(4))
+                let (username, timestamp, isFromMe) = parseMessageHeader(headerContent)
+                
+                // Start message div
+                let messageClass = isFromMe ? "message from-me" : "message from-other"
+                html += "<div class=\"\(messageClass)\">\n"
+                html += "<div class=\"message-header\">\(escapeHTML(username)) • \(escapeHTML(timestamp))</div>\n"
+                
+                // Parse message content
+                i += 1
+                var messageContent = ""
+                var hasQuote = false
+                
+                while i < lines.count {
+                    let contentLine = lines[i]
+                    
+                    // Stop at next message or separator
+                    if contentLine.hasPrefix("### ") || contentLine == "---" {
+                        break
+                    }
+                    
+                    // Handle quotes
+                    if contentLine.hasPrefix("> ") {
+                        if !hasQuote {
+                            messageContent += "<div class=\"quote\">\n"
+                            hasQuote = true
+                        }
+                        messageContent += escapeHTML(String(contentLine.dropFirst(2))) + "<br>\n"
+                    } else if hasQuote && !contentLine.trimmingCharacters(in: .whitespaces).isEmpty {
+                        messageContent += "</div>\n"
+                        hasQuote = false
+                        messageContent += processContentLine(contentLine)
+                    } else if contentLine.hasPrefix("[Attachment:") {
+                        messageContent += processAttachmentLine(contentLine)
+                    } else if contentLine.hasPrefix("[Reactions:") {
+                        // Close any open quote
+                        if hasQuote {
+                            messageContent += "</div>\n"
+                            hasQuote = false
+                        }
+                        messageContent += "<div class=\"reactions\">\(escapeHTML(contentLine))</div>\n"
+                    } else if !contentLine.trimmingCharacters(in: .whitespaces).isEmpty {
+                        messageContent += processContentLine(contentLine)
+                    }
+                    
+                    i += 1
+                }
+                
+                // Close any open quote
+                if hasQuote {
+                    messageContent += "</div>\n"
+                }
+                
+                html += "<div class=\"message-content\">\(messageContent)</div>\n"
+                html += "</div>\n"
+            } else {
+                i += 1
+            }
+        }
+        
+        return html
+    }
+    
+    private func parseMessageHeader(_ header: String) -> (username: String, timestamp: String, isFromMe: Bool) {
+        // Parse "username [timestamp]" format
+        if let bracketStart = header.lastIndex(of: "["),
+           let bracketEnd = header.lastIndex(of: "]") {
+            let username = String(header[..<bracketStart]).trimmingCharacters(in: .whitespaces)
+            let timestamp = String(header[header.index(after: bracketStart)..<bracketEnd])
+            let isFromMe = username == "me"
+            return (username, timestamp, isFromMe)
+        }
+        return (header, "", false)
+    }
+    
+    private func processContentLine(_ line: String) -> String {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            return "<br>\n"
+        }
+        
+        // Check if this line contains a markdown link (from URL app messages)
+        let linkPattern = #"\[([^\]]+)\]\(([^)]+)\)"#
+        if let regex = try? NSRegularExpression(pattern: linkPattern),
+           let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
+            
+            let textRange = Range(match.range(at: 1), in: trimmed)!
+            let urlRange = Range(match.range(at: 2), in: trimmed)!
+            
+            let linkText = String(trimmed[textRange])
+            let linkURL = String(trimmed[urlRange])
+            
+            return "<a href=\"\(escapeHTML(linkURL))\" target=\"_blank\">\(escapeHTML(linkText))</a><br>\n"
+        }
+        
+        return escapeHTML(trimmed) + "<br>\n"
+    }
+    
+    private func processAttachmentLine(_ line: String) -> String {
+        // Parse [Attachment: filename](path) format
+        let pattern = #"\[Attachment: ([^\]]+)\]\(([^)]+)\)"#
+        
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) {
+            
+            let filenameRange = Range(match.range(at: 1), in: line)!
+            let pathRange = Range(match.range(at: 2), in: line)!
+            
+            let filename = String(line[filenameRange])
+            let path = String(line[pathRange])
+            
+            // Determine file type and render accordingly
+            let fileExtension = URL(fileURLWithPath: filename).pathExtension.lowercased()
+            
+            if ["jpg", "jpeg", "png", "gif", "webp", "heic"].contains(fileExtension) {
+                return "<img src=\"\(escapeHTML(path))\" alt=\"\(escapeHTML(filename))\" title=\"\(escapeHTML(filename))\">\n"
+            } else if ["mp4", "mov", "avi", "mkv", "webm"].contains(fileExtension) {
+                return "<video controls><source src=\"\(escapeHTML(path))\" type=\"video/\(fileExtension)\">Your browser does not support the video tag.</video>\n"
+            } else if ["mp3", "wav", "aac", "m4a"].contains(fileExtension) {
+                return "<audio controls><source src=\"\(escapeHTML(path))\" type=\"audio/\(fileExtension)\">Your browser does not support the audio tag.</audio>\n"
+            } else {
+                return "<a href=\"\(escapeHTML(path))\" class=\"attachment-link\">📎 \(escapeHTML(filename))</a>\n"
+            }
+        }
+        
+        return escapeHTML(line) + "<br>\n"
+    }
+    
+    private func escapeHTML(_ text: String) -> String {
+        return text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#x27;")
     }
     
     // MARK: - Private Implementation
@@ -431,7 +647,7 @@ public final class MarkdownExporter: Sendable {
             
             // Add reactions if enabled
             if options.includeReactions && !group.reactions.isEmpty {
-                output += formatReactions(group.reactions, handleMapping: handleMapping)
+                output += await formatReactions(group.reactions, handleMapping: handleMapping)
             }
             
             output += "\n---\n\n"
@@ -457,6 +673,11 @@ public final class MarkdownExporter: Sendable {
                 
                 // Include reactions if enabled
                 if options.includeReactions && message.isReaction {
+                    return true
+                }
+                
+                // Always include URL app messages (they should be treated as regular content)
+                if message.isAppMessage && message.balloonBundleId == "com.apple.messages.URLBalloonProvider" {
                     return true
                 }
                 
@@ -543,14 +764,25 @@ public final class MarkdownExporter: Sendable {
     }
     
     private func formatMessage(_ message: Message, handleMapping: [Int32: String]) async throws -> String {
-        let username = formatUsername(message: message, handleMapping: handleMapping)
+        let username = await formatUsername(message: message, handleMapping: handleMapping)
         let timestamp = dateFormatter.string(from: message.sentDate)
         
-        var output = "### @\(username) [\(timestamp)]\n\n"
+        var output = "### \(username) [\(timestamp)]\n\n"
         
         // Add message content
         if let text = message.effectiveText {
-            output += text + "\n\n"
+            // Special handling for URL app messages
+            if message.balloonBundleId == "com.apple.messages.URLBalloonProvider" {
+                // Format URL messages with proper markdown link syntax
+                if let url = extractURLFromText(text) {
+                    output += "[\(text)](\(url))\n\n"
+                } else {
+                    // Fallback: treat as regular text if URL extraction fails
+                    output += text + "\n\n"
+                }
+            } else {
+                output += text + "\n\n"
+            }
         }
         
         // Add attachments
@@ -565,12 +797,12 @@ public final class MarkdownExporter: Sendable {
     }
     
     private func formatReply(_ reply: Message, parentMessage: Message, handleMapping: [Int32: String]) async throws -> String {
-        let username = formatUsername(message: reply, handleMapping: handleMapping)
+        let username = await formatUsername(message: reply, handleMapping: handleMapping)
         let timestamp = dateFormatter.string(from: reply.sentDate)
-        let parentUsername = formatUsername(message: parentMessage, handleMapping: handleMapping)
+        let parentUsername = await formatUsername(message: parentMessage, handleMapping: handleMapping)
         let parentTimestamp = dateFormatter.string(from: parentMessage.sentDate)
         
-        var output = "### @\(username) [\(timestamp)]\n\n"
+        var output = "### \(username) [\(timestamp)]\n\n"
         
         // Add quoted parent message
         var quotedText = parentMessage.effectiveText ?? ""
@@ -578,12 +810,23 @@ public final class MarkdownExporter: Sendable {
             quotedText = String(quotedText.prefix(options.maxQuoteLength)) + "..."
         }
         
-        output += "> @\(parentUsername) [\(parentTimestamp)]:  \n"
+        output += "> \(parentUsername) [\(parentTimestamp)]:  \n"
         output += "> \(quotedText)\n\n"
         
         // Add reply content
         if let text = reply.effectiveText {
-            output += text + "\n\n"
+            // Special handling for URL app messages
+            if reply.balloonBundleId == "com.apple.messages.URLBalloonProvider" {
+                // Format URL messages with proper markdown link syntax
+                if let url = extractURLFromText(text) {
+                    output += "[\(text)](\(url))\n\n"
+                } else {
+                    // Fallback: treat as regular text if URL extraction fails
+                    output += text + "\n\n"
+                }
+            } else {
+                output += text + "\n\n"
+            }
         }
         
         // Add attachments
@@ -597,13 +840,13 @@ public final class MarkdownExporter: Sendable {
         return output
     }
     
-    private func formatReactions(_ reactions: [Message], handleMapping: [Int32: String]) -> String {
+    private func formatReactions(_ reactions: [Message], handleMapping: [Int32: String]) async -> String {
         var reactionList: [String] = []
         
         for reaction in reactions {
-            let username = formatUsername(message: reaction, handleMapping: handleMapping)
+            let username = await formatUsername(message: reaction, handleMapping: handleMapping)
             if let emoji = reaction.associatedMessageEmoji {
-                reactionList.append("@\(username) \(emoji)")
+                reactionList.append("\(username) \(emoji)")
             }
         }
         
@@ -644,13 +887,22 @@ public final class MarkdownExporter: Sendable {
         return output
     }
     
-    private func formatUsername(message: Message, handleMapping: [Int32: String]) -> String {
+    private func formatUsername(message: Message, handleMapping: [Int32: String]) async -> String {
         var username: String
         
         if message.isFromMe {
             username = "me"
         } else if let handleId = message.handleId, let handle = handleMapping[handleId] {
-            username = handle
+            // Try contact lookup first if available
+            if let contactLookup = options.contactLookup {
+                if let displayName = await contactLookup(handle) {
+                    username = displayName
+                } else {
+                    username = handle
+                }
+            } else {
+                username = handle
+            }
         } else {
             username = "unknown"
         }
@@ -659,7 +911,7 @@ public final class MarkdownExporter: Sendable {
             username = sanitizeUsername(username)
         }
         
-        return username // Remove @ prefix to use original identifier
+        return username // Use identifier as-is, no @ prefix
     }
     
     private func sanitizeUsername(_ username: String) -> String {
@@ -683,6 +935,28 @@ public final class MarkdownExporter: Sendable {
             .replacingOccurrences(of: "|", with: "_")
             .replacingOccurrences(of: "\"", with: "_")
             .filter { !$0.isWhitespace || $0 == " " }
+    }
+    
+    private func extractURLFromText(_ text: String) -> String? {
+        // Try to extract URL using NSDataDetector
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return nil
+        }
+        
+        let range = NSRange(location: 0, length: text.utf16.count)
+        let matches = detector.matches(in: text, options: [], range: range)
+        
+        // Return the first URL found
+        if let match = matches.first, let url = match.url {
+            return url.absoluteString
+        }
+        
+        // Fallback: if the entire text looks like a URL, return it
+        if text.hasPrefix("http://") || text.hasPrefix("https://") {
+            return text
+        }
+        
+        return nil
     }
 }
 
