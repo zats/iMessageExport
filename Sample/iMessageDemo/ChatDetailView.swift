@@ -10,6 +10,8 @@ struct ChatDetailView: View {
     @State private var isLoading = true
     @State private var error: (any Error)?
     @State private var reactions: [String: [Message]] = [:]
+    @State private var exportedMarkdown: String?
+    @State private var showingExportSheet = false
     
     var body: some View {
         VStack {
@@ -74,11 +76,48 @@ struct ChatDetailView: View {
         }
         .navigationTitle(chatTitle)
         .navigationSubtitle("\(messages.count) messages")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Export All Messages") {
+                        Task {
+                            await exportToMarkdown(type: .all)
+                        }
+                    }
+                    
+                    Button("Export Last 50 Messages") {
+                        Task {
+                            await exportToMarkdown(type: .recent(50))
+                        }
+                    }
+                    
+                    Button("Export Last 7 Days") {
+                        Task {
+                            await exportToMarkdown(type: .lastDays(7))
+                        }
+                    }
+                    
+                    Button("Export Threads Only") {
+                        Task {
+                            await exportToMarkdown(type: .threadsOnly)
+                        }
+                    }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .disabled(isLoading || messages.isEmpty)
+            }
+        }
         .task(id: chat.id) {
             await loadMessages()
         }
         .refreshable {
             await loadMessages()
+        }
+        .sheet(isPresented: $showingExportSheet) {
+            if let markdown = exportedMarkdown {
+                MarkdownExportSheet(markdown: markdown, chatTitle: chatTitle)
+            }
         }
     }
     
@@ -129,4 +168,38 @@ struct ChatDetailView: View {
             isLoading = false
         }
     }
+    
+    private func exportToMarkdown(type: ExportType) async {
+        do {
+            let markdownExporter = exporter.createMarkdownExporter()
+            let markdown: String
+            
+            switch type {
+            case .all:
+                markdown = try await markdownExporter.exportChat(chatId: chat.id)
+            case .recent(let limit):
+                markdown = try await markdownExporter.exportChatWithLimit(chatId: chat.id, messageLimit: limit)
+            case .lastDays(let days):
+                let dateRange = DateRange.lastDays(days)
+                markdown = try await markdownExporter.exportChatInDateRange(chatId: chat.id, dateRange: dateRange)
+            case .threadsOnly:
+                markdown = try await markdownExporter.exportThreadsOnly(chatId: chat.id)
+            }
+            
+            await MainActor.run {
+                exportedMarkdown = markdown
+                showingExportSheet = true
+            }
+        } catch {
+            // Handle export error - could show an alert
+            print("Export failed: \(error)")
+        }
+    }
+}
+
+enum ExportType {
+    case all
+    case recent(Int)
+    case lastDays(Int)
+    case threadsOnly
 }

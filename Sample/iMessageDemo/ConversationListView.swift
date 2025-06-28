@@ -10,6 +10,8 @@ struct ConversationListView: View {
     @State private var chats: [Chat] = []
     @State private var handles: [Int32: String] = [:]
     @State private var searchText = ""
+    @State private var isExporting = false
+    @State private var exportProgress: Double = 0
     
     var filteredChats: [Chat] {
         if searchText.isEmpty {
@@ -29,6 +31,25 @@ struct ConversationListView: View {
         .listStyle(.sidebar)
         .searchable(text: $searchText, prompt: "Search conversations")
         .navigationTitle("Conversations")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if isExporting {
+                    HStack {
+                        ProgressView(value: exportProgress)
+                            .frame(width: 60)
+                        Text("Exporting...")
+                            .font(.caption)
+                    }
+                } else {
+                    Button("Export All") {
+                        Task {
+                            await exportAllChats()
+                        }
+                    }
+                    .disabled(chats.isEmpty || isLoading)
+                }
+            }
+        }
         .overlay {
             if isLoading {
                 ProgressView("Loading conversations...")
@@ -114,6 +135,83 @@ struct ConversationListView: View {
         } else {
             return "Group Chat"
         }
+    }
+    
+    private func exportAllChats() async {
+        guard let exporter else { return }
+        
+        await MainActor.run {
+            isExporting = true
+            exportProgress = 0
+        }
+        
+        do {
+            let markdownExporter = exporter.createMarkdownExporter()
+            let exportResults = try await markdownExporter.exportAllChats()
+            
+            // Save all exports to a folder
+            let savePanel = NSSavePanel()
+            savePanel.title = "Export All Conversations"
+            savePanel.prompt = "Export"
+            savePanel.canCreateDirectories = true
+            savePanel.canChooseDirectories = true
+            savePanel.canChooseFiles = false
+            
+            await MainActor.run {
+                savePanel.begin { result in
+                    if result == .OK, let selectedURL = savePanel.url {
+                        Task {
+                            await saveExports(exportResults, to: selectedURL)
+                        }
+                    }
+                    isExporting = false
+                }
+            }
+        } catch {
+            await MainActor.run {
+                isExporting = false
+                // Could show error alert here
+                print("Export failed: \(error)")
+            }
+        }
+    }
+    
+    private func saveExports(_ exports: [String: String], to directory: URL) async {
+        let total = exports.count
+        var completed = 0
+        
+        for (chatName, markdown) in exports {
+            let filename = sanitizeFilename(chatName) + ".md"
+            let fileURL = directory.appendingPathComponent(filename)
+            
+            do {
+                try markdown.write(to: fileURL, atomically: true, encoding: .utf8)
+            } catch {
+                print("Failed to save \(filename): \(error)")
+            }
+            
+            completed += 1
+            await MainActor.run {
+                exportProgress = Double(completed) / Double(total)
+            }
+        }
+        
+        await MainActor.run {
+            isExporting = false
+        }
+    }
+    
+    private func sanitizeFilename(_ filename: String) -> String {
+        return filename
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .replacingOccurrences(of: "?", with: "_")
+            .replacingOccurrences(of: "*", with: "_")
+            .replacingOccurrences(of: "<", with: "_")
+            .replacingOccurrences(of: ">", with: "_")
+            .replacingOccurrences(of: "|", with: "_")
+            .replacingOccurrences(of: "\"", with: "_")
+            .filter { !$0.isWhitespace || $0 == " " }
     }
 }
 
