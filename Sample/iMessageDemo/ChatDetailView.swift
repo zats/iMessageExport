@@ -4,6 +4,7 @@ import iMessageExport
 struct ChatDetailView: View {
     let chat: Chat
     let exporter: iMessageExport
+    @ObservedObject var contactManager: ContactManager
     
     @State private var messages: [Message] = []
     @State private var handles: [Int32: String] = [:]
@@ -48,7 +49,8 @@ struct ChatDetailView: View {
                                 MessageRowView(
                                     message: message, 
                                     handles: handles,
-                                    reactions: reactions[message.guid] ?? []
+                                    reactions: reactions[message.guid] ?? [],
+                                    contactManager: contactManager
                                 )
                                 .id(message.id)
                             }
@@ -99,12 +101,12 @@ struct ChatDetailView: View {
     private var chatTitle: String {
         if let displayName = chat.displayName, !displayName.isEmpty {
             return displayName
-        }
-        
-        if chat.isDirectMessage {
+        } else if let contactName = contactManager.lookupContactName(for: chat.chatIdentifier) {
+            return contactName
+        } else if chat.isDirectMessage {
             return chat.chatIdentifier
         } else {
-            return "Group Chat"
+            return "Untitled"
         }
     }
     

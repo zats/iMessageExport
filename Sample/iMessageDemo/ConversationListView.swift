@@ -7,6 +7,7 @@ struct ConversationListView: View {
     @Binding var isLoading: Bool
     @Binding var error: (any Error)?
     @Binding var exporter: iMessageExport?
+    @ObservedObject var contactManager: ContactManager
     
     @State private var chats: [Chat] = []
     @State private var handles: [Int32: String] = [:]
@@ -14,20 +15,25 @@ struct ConversationListView: View {
     @State private var isExporting = false
     @State private var exportProgress: Double = 0
     @State private var chatToExport: Chat?
+    @State private var showContacts = false
     
     var filteredChats: [Chat] {
         if searchText.isEmpty {
             return chats
-        } else {
-            return chats.filter { chat in
-                displayName(for: chat).localizedCaseInsensitiveContains(searchText)
-            }
+        }
+        return chats.filter { chat in
+            let chatName = displayName(for: chat)
+            let chatIdentifier = chat.chatIdentifier
+            let nameMatch = chatName.range(of: searchText, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            let identifierMatch = chatIdentifier.range(of: searchText, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            
+            return nameMatch || identifierMatch
         }
     }
     
     var body: some View {
         List(filteredChats, id: \.id, selection: $selectedChat) { chat in
-            ConversationRowView(chat: chat, handles: handles)
+            ConversationRowView(chat: chat, handles: handles, contactManager: contactManager)
                 .tag(chat)
                 .contextMenu {
                     Button("Export Chat...") {
@@ -37,26 +43,40 @@ struct ConversationListView: View {
                 }
         }
         .listStyle(.sidebar)
-        .searchable(text: $searchText, prompt: "Search conversations")
         .navigationTitle("Conversations")
+        .searchable(text: $searchText, prompt: "Search conversations")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                if isExporting {
-                    HStack {
-                        ProgressView(value: exportProgress)
-                            .frame(width: 60)
-                        Text("Exporting...")
-                            .font(.caption)
-                    }
-                } else {
-                    Button("Export All") {
-                        Task {
-                            await exportAllChats()
-                        }
-                    }
-                    .disabled(chats.isEmpty || isLoading)
+                Toggle(isOn: $showContacts) {
+                    Label("Show Contacts", systemImage: "person.fill")
                 }
+                    .tint(.blue)
+                    .toggleStyle(.button)
+                    .labelsVisibility(.visible)
+                    .disabled(isLoading)
+                    .onChange(of: showContacts) { oldValue, newValue in
+                        contactManager.toggleContactLookup()
+                    }
             }
+//            ToolbarItemGroup(placement: .secondaryAction) {
+//                HStack {
+//                    if isExporting {
+//                        HStack {
+//                            ProgressView(value: exportProgress)
+//                                .frame(width: 60)
+//                            Text("Exporting...")
+//                                .font(.caption)
+//                        }
+//                    } else {
+//                        Button("Export All") {
+//                            Task {
+//                                await exportAllChats()
+//                            }
+//                        }
+//                        .disabled(chats.isEmpty || isLoading)
+//                    }
+//                }
+//            }
         }
         .overlay {
             if isLoading {
@@ -144,6 +164,10 @@ struct ConversationListView: View {
         if let displayName = chat.displayName, !displayName.isEmpty {
             return displayName
         }
+        if let contactName = contactManager.lookupContactName(for: chat.chatIdentifier) {
+            return contactName
+        }
+
         
         if chat.isDirectMessage {
             return chat.chatIdentifier
@@ -217,6 +241,7 @@ struct ConversationListView: View {
 struct ConversationRowView: View {
     let chat: Chat
     let handles: [Int32: String]
+    @ObservedObject var contactManager: ContactManager
     
     var body: some View {
         HStack {
@@ -252,6 +277,10 @@ struct ConversationRowView: View {
         }
         
         if chat.isDirectMessage {
+            // Try to get contact name for direct messages
+            if let contactName = contactManager.lookupContactName(for: chat.chatIdentifier) {
+                return contactName
+            }
             return chat.chatIdentifier
         } else {
             return "Group Chat"

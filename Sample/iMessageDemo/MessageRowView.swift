@@ -5,6 +5,7 @@ struct MessageRowView: View {
     let message: Message
     let handles: [Int32: String]
     let reactions: [Message]
+    @ObservedObject var contactManager: ContactManager
     
     var body: some View {
         VStack(alignment: message.isFromMe ? .trailing : .leading, spacing: 4) {
@@ -43,7 +44,7 @@ struct MessageRowView: View {
     private var senderName: String {
         if let handleId = message.handleId,
            let name = handles[handleId] {
-            return name
+            return contactManager.lookupContactName(for: name) ?? name
         }
         return "Unknown"
     }
@@ -61,7 +62,7 @@ struct MessageBubbleView: View {
             case .edited:
                 EditedMessageView(message: message)
                 
-            case .tapback(let action, let tapback):
+            case .tapback:
                 // This should only render if the message has text content (handled by filtering)
                 NormalMessageView(message: message)
                 

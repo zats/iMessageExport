@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var error: (any Error)?
     @State private var exporter: iMessageExport?
+    @StateObject private var contactManager = ContactManager()
     
     var body: some View {
         NavigationSplitView {
@@ -13,12 +14,13 @@ struct ContentView: View {
                 selectedChat: $selectedChat,
                 isLoading: $isLoading,
                 error: $error,
-                exporter: $exporter
+                exporter: $exporter,
+                contactManager: contactManager
             )
             .navigationSplitViewColumnWidth(min: 300, ideal: 350, max: 500)
         } detail: {
             if let selectedChat = selectedChat, let exporter = exporter {
-                ChatDetailView(chat: selectedChat, exporter: exporter)
+                ChatDetailView(chat: selectedChat, exporter: exporter, contactManager: contactManager)
             } else {
                 VStack(spacing: 20) {
                     if error == nil {
