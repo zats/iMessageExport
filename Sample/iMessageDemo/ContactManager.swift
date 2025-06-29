@@ -1,10 +1,11 @@
 import Combine
 import Contacts
 import Foundation
+import SwiftUI
 
 @MainActor
 class ContactManager: ObservableObject {
-    @Published var isEnabled: Bool = false
+    @AppStorage("contactLookupEnabled") var isEnabled: Bool = false
     @Published var hasAccess: Bool = false
     
     private let store = CNContactStore()
@@ -25,6 +26,9 @@ class ContactManager: ObservableObject {
     private func checkAuthorizationStatus() {
         let status = CNContactStore.authorizationStatus(for: .contacts)
         hasAccess = (status == .authorized)
+        if hasAccess && !isEnabled { // If access is granted but toggle is off, turn it on
+            isEnabled = true
+        }
     }
     
     private func requestContactAccess() {
