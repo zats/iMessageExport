@@ -233,8 +233,8 @@ public struct Message: Sendable, Hashable, Codable, Identifiable {
         }
         
         // Fall back to parsing attributedBody for streamtyped content
-        if let attributedBody = attributedBody {
-            return parseStreamtypedText(from: attributedBody)
+        if let attributedBody {
+            return (try? NSUnarchiver.unarchiveObject(with: attributedBody) as? NSAttributedString)?.string
         }
         
         return nil
@@ -302,70 +302,6 @@ extension Message: CustomStringConvertible {
 
 // MARK: - Streamtyped Parsing
 extension Message {
-    /// Parse text content from binary attributedBody data using streamtyped format
-    private func parseStreamtypedText(from data: Data) -> String? {
-        // Check if this is streamtyped data by looking for the header
-        guard data.count > 12 else { return nil }
-        
-        let streamtypedHeader = "streamtyped".data(using: .utf8)!
-        let dataPrefix = data.prefix(streamtypedHeader.count)
-        
-        // If it starts with "streamtyped", use the streamtyped parser
-        if dataPrefix == streamtypedHeader {
-            return parseStreamtypedLegacy(data: data)
-        }
-        
-        // Try modern NSKeyedUnarchiver approach for typedstream data
-        return parseTypedstream(data: data)
-    }
-    
-    /// Parse legacy streamtyped format following Rust implementation exactly
-    private func parseStreamtypedLegacy(data: Data) -> String? {
-        let startPattern: [UInt8] = [0x01, 0x2B] // SOH + '+'
-        let endPattern: [UInt8] = [0x86, 0x84]   // SSA + IND
-        
-        var bytes = Array(data)
-        
-        // Step 1: Find start pattern and drain everything before and including it
-        var foundStart = false
-        for idx in 0..<bytes.count {
-            if idx + 2 > bytes.count {
-                return nil // NoStartPattern
-            }
-            
-            let part = Array(bytes[idx..<idx + 2])
-            if part == startPattern {
-                // Remove everything up to and including the start pattern
-                bytes.removeFirst(idx + 2)
-                foundStart = true
-                break
-            }
-        }
-        
-        guard foundStart else { return nil }
-        
-        // Step 2: Find end pattern starting from position 1 and truncate there
-        var foundEnd = false
-        for idx in 1..<bytes.count {
-            if idx >= bytes.count - 2 {
-                return nil // NoEndPattern
-            }
-            
-            let part = Array(bytes[idx..<idx + 2])
-            if part == endPattern {
-                // Truncate at the end pattern position
-                bytes = Array(bytes[..<idx])
-                foundEnd = true
-                break
-            }
-        }
-        
-        guard foundEnd else { return nil }
-        
-        // Step 3: Convert to UTF-8 and handle prefix removal
-        return extractTextWithPrefixHandling(from: bytes)
-    }
-    
     /// Extract text with proper prefix character removal following Rust logic exactly
     private func extractTextWithPrefixHandling(from bytes: [UInt8]) -> String? {
         let data = Data(bytes)
@@ -393,21 +329,5 @@ extension Message {
         let result = String(remainingCharacters)
         
         return result.isEmpty ? nil : result
-    }
-    
-    /// Try to parse modern typedstream/NSKeyedUnarchiver format
-    private func parseTypedstream(data: Data) -> String? {
-        // Try NSKeyedUnarchiver for modern attributed strings
-        do {
-            if let attributedString = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as? NSAttributedString {
-                let text = attributedString.string
-                return text.isEmpty ? nil : text
-            }
-        } catch {
-            // Fallback to legacy parsing if NSKeyedUnarchiver fails
-        }
-        
-        // If NSKeyedUnarchiver fails, try the legacy streamtyped parser anyway
-        return parseStreamtypedLegacy(data: data)
     }
 }
